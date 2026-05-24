@@ -1,0 +1,6 @@
+@FitnessApp.API_HostAddress = http://localhost:5146
+
+GET {{FitnessApp.API_HostAddress}}/
+Accept: application/json
+
+###
