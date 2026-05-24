@@ -1,4 +1,5 @@
 using FitnessApp.API.Extensions;
+using FitnessApp.Infrastructure.Extensions;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,10 +15,13 @@ builder.Host.UseSerilog((context, services, configuration) =>
 
 builder.Services
     .AddApiServices(builder.Configuration)
+    .AddInfrastructureServices(builder.Configuration)
     .AddSwaggerDocumentation()
     .AddCorsPolicy(builder.Configuration);
 
 var app = builder.Build();
+
+await app.SeedIdentityAsync();
 
 app.UseApiPipeline();
 
