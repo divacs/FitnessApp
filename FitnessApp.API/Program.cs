@@ -16,6 +16,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
 builder.Services
     .AddApiServices(builder.Configuration)
     .AddInfrastructureServices(builder.Configuration)
+    .AddJwtAuthentication(builder.Configuration)
     .AddSwaggerDocumentation()
     .AddCorsPolicy(builder.Configuration);
 
