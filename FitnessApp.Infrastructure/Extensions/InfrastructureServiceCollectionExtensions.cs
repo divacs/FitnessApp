@@ -1,5 +1,7 @@
 using FitnessApp.Domain.Entities;
 using FitnessApp.Application.Features.Auth.Interfaces;
+using FitnessApp.Application.Features.Emails.Interfaces;
+using FitnessApp.Infrastructure.Emails;
 using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using FitnessApp.Infrastructure.Services;
@@ -47,6 +49,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IIdentitySeeder, IdentitySeeder>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IEmailService, EmailService>();
 
         return services;
     }
