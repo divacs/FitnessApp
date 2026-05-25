@@ -1,3 +1,4 @@
+using FitnessApp.API.Middleware;
 using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -27,6 +28,8 @@ public static class ApplicationBuilderExtensions
 
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
+        app.UseGlobalExceptionHandling();
+
         if (app.Environment.IsDevelopment())
         {
             app.UseSwagger();
@@ -49,5 +52,10 @@ public static class ApplicationBuilderExtensions
         app.MapControllers();
 
         return app;
+    }
+
+    public static IApplicationBuilder UseGlobalExceptionHandling(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<GlobalExceptionMiddleware>();
     }
 }
