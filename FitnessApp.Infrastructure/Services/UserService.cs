@@ -5,6 +5,7 @@ using FitnessApp.Application.Features.Users.DTOs;
 using FitnessApp.Application.Features.Users.Interfaces;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
+using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -143,7 +144,7 @@ public class UserService : IUserService
 
         if (!result.Succeeded)
         {
-            throw CreateBadRequestException("Promena lozinke nije uspela.", result);
+            throw result.ToBadRequestException("Promena lozinke nije uspela.");
         }
 
         user.UpdatedAt = DateTime.UtcNow;
@@ -223,12 +224,4 @@ public class UserService : IUserService
         };
     }
 
-    private static BadRequestException CreateBadRequestException(string message, IdentityResult result)
-    {
-        var errors = result.Errors
-            .Select(error => error.Description)
-            .ToArray();
-
-        return new BadRequestException(message, errors);
-    }
 }

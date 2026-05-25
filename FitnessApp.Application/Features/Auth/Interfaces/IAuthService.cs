@@ -4,13 +4,23 @@ namespace FitnessApp.Application.Features.Auth.Interfaces;
 
 public interface IAuthService
 {
-    Task<CurrentUserResponse> RegisterAsync(RegisterRequest request);
+    Task<CurrentUserResponse> RegisterAsync(
+        RegisterRequest request,
+        CancellationToken cancellationToken = default);
 
-    Task<AuthResponse> LoginAsync(LoginRequest request);
+    Task<AuthResponse> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default);
 
-    Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);
+    Task<AuthResponse> RefreshTokenAsync(
+        RefreshTokenRequest request,
+        CancellationToken cancellationToken = default);
 
-    Task RevokeTokenAsync(RevokeTokenRequest request);
+    Task RevokeTokenAsync(
+        RevokeTokenRequest request,
+        CancellationToken cancellationToken = default);
 
-    Task<CurrentUserResponse> GetCurrentUserAsync(Guid userId);
+    Task<CurrentUserResponse> GetCurrentUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
 }

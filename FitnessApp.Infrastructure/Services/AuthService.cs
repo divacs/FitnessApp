@@ -4,6 +4,7 @@ using FitnessApp.Application.Features.Auth.Interfaces;
 using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
+using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -33,8 +34,12 @@ public class AuthService : IAuthService
         _logger = logger;
     }
 
-    public async Task<CurrentUserResponse> RegisterAsync(RegisterRequest request)
+    public async Task<CurrentUserResponse> RegisterAsync(
+        RegisterRequest request,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
 
         if (existingUser is not null)
@@ -58,7 +63,7 @@ public class AuthService : IAuthService
 
         if (!createResult.Succeeded)
         {
-            throw CreateBadRequestException("Registracija nije uspela.", createResult);
+            throw createResult.ToBadRequestException("Registracija nije uspela.");
         }
 
         var roleResult = await _userManager.AddToRoleAsync(user, RoleConstants.User);
@@ -66,14 +71,18 @@ public class AuthService : IAuthService
         if (!roleResult.Succeeded)
         {
             _logger.LogError("Failed to assign default role to user {UserId}.", user.Id);
-            throw CreateBadRequestException("Dodela korisničke role nije uspela.", roleResult);
+            throw roleResult.ToBadRequestException("Dodela korisničke role nije uspela.");
         }
 
         return await MapCurrentUserResponseAsync(user);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request)
+    public async Task<AuthResponse> LoginAsync(
+        LoginRequest request,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var user = await _userManager.FindByEmailAsync(request.Email);
 
         if (user is null)
@@ -90,14 +99,16 @@ public class AuthService : IAuthService
 
         EnsureUserCanAuthenticate(user);
 
-        return await CreateAuthResponseAndRefreshTokenAsync(user);
+        return await CreateAuthResponseAndRefreshTokenAsync(user, cancellationToken: cancellationToken);
     }
 
-    public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
+    public async Task<AuthResponse> RefreshTokenAsync(
+        RefreshTokenRequest request,
+        CancellationToken cancellationToken = default)
     {
         var refreshToken = await _dbContext.RefreshTokens
             .Include(x => x.User)
-            .FirstOrDefaultAsync(x => x.Token == request.RefreshToken);
+            .FirstOrDefaultAsync(x => x.Token == request.RefreshToken, cancellationToken);
 
         if (refreshToken is null)
         {
@@ -120,13 +131,18 @@ public class AuthService : IAuthService
         refreshToken.RevokedAt = DateTime.UtcNow;
         refreshToken.ReplacedByToken = newRefreshToken;
 
-        return await CreateAuthResponseAndRefreshTokenAsync(refreshToken.User, newRefreshToken);
+        return await CreateAuthResponseAndRefreshTokenAsync(
+            refreshToken.User,
+            newRefreshToken,
+            cancellationToken);
     }
 
-    public async Task RevokeTokenAsync(RevokeTokenRequest request)
+    public async Task RevokeTokenAsync(
+        RevokeTokenRequest request,
+        CancellationToken cancellationToken = default)
     {
         var refreshToken = await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(x => x.Token == request.RefreshToken);
+            .FirstOrDefaultAsync(x => x.Token == request.RefreshToken, cancellationToken);
 
         if (refreshToken is null || !refreshToken.IsActive)
         {
@@ -135,11 +151,17 @@ public class AuthService : IAuthService
 
         refreshToken.RevokedAt = DateTime.UtcNow;
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Refresh token revoked for user {UserId}.", refreshToken.UserId);
     }
 
-    public async Task<CurrentUserResponse> GetCurrentUserAsync(Guid userId)
+    public async Task<CurrentUserResponse> GetCurrentUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
@@ -152,7 +174,8 @@ public class AuthService : IAuthService
 
     private async Task<AuthResponse> CreateAuthResponseAndRefreshTokenAsync(
         ApplicationUser user,
-        string? refreshTokenValue = null)
+        string? refreshTokenValue = null,
+        CancellationToken cancellationToken = default)
     {
         var accessToken = await _tokenService.GenerateAccessTokenAsync(user);
         var accessTokenExpiresAt = _tokenService.GetAccessTokenExpiration();
@@ -166,7 +189,7 @@ public class AuthService : IAuthService
             CreatedAt = DateTime.UtcNow
         });
 
-        await _dbContext.SaveChangesAsync();
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var role = await GetPrimaryRoleAsync(user);
 
@@ -219,12 +242,4 @@ public class AuthService : IAuthService
         }
     }
 
-    private static BadRequestException CreateBadRequestException(string message, IdentityResult result)
-    {
-        var errors = result.Errors
-            .Select(error => error.Description)
-            .ToArray();
-
-        return new BadRequestException(message, errors);
-    }
 }

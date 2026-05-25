@@ -2,6 +2,7 @@ using FitnessApp.API.Middleware;
 using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 
 namespace FitnessApp.API.Extensions;
 
@@ -29,6 +30,7 @@ public static class ApplicationBuilderExtensions
     public static WebApplication UseApiPipeline(this WebApplication app)
     {
         app.UseGlobalExceptionHandling();
+        app.UseSerilogRequestLogging();
 
         if (app.Environment.IsDevelopment())
         {

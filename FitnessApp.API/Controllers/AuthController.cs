@@ -20,9 +20,11 @@ public class AuthController : ControllerBase
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Register(RegisterRequest request)
+    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Register(
+        RegisterRequest request,
+        CancellationToken cancellationToken)
     {
-        var user = await _authService.RegisterAsync(request);
+        var user = await _authService.RegisterAsync(request, cancellationToken);
 
         return Ok(ApiResponse<CurrentUserResponse>.Success(
             user,
@@ -31,37 +33,44 @@ public class AuthController : ControllerBase
 
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<ActionResult<ApiResponse<AuthResponse>>> Login(LoginRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> Login(
+        LoginRequest request,
+        CancellationToken cancellationToken)
     {
-        var response = await _authService.LoginAsync(request);
+        var response = await _authService.LoginAsync(request, cancellationToken);
 
         return Ok(ApiResponse<AuthResponse>.Success(response));
     }
 
     [HttpPost("refresh-token")]
     [AllowAnonymous]
-    public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken(RefreshTokenRequest request)
+    public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken(
+        RefreshTokenRequest request,
+        CancellationToken cancellationToken)
     {
-        var response = await _authService.RefreshTokenAsync(request);
+        var response = await _authService.RefreshTokenAsync(request, cancellationToken);
 
         return Ok(ApiResponse<AuthResponse>.Success(response));
     }
 
     [HttpPost("logout")]
     [AllowAnonymous]
-    public async Task<ActionResult<ApiResponse<object>>> Logout(RevokeTokenRequest request)
+    public async Task<ActionResult<ApiResponse<object>>> Logout(
+        RevokeTokenRequest request,
+        CancellationToken cancellationToken)
     {
-        await _authService.RevokeTokenAsync(request);
+        await _authService.RevokeTokenAsync(request, cancellationToken);
 
         return Ok(ApiResponse<object>.Success(new { }, "Uspešno ste se odjavili."));
     }
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Me()
+    public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Me(
+        CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
-        var response = await _authService.GetCurrentUserAsync(userId);
+        var response = await _authService.GetCurrentUserAsync(userId, cancellationToken);
 
         return Ok(ApiResponse<CurrentUserResponse>.Success(response));
     }
