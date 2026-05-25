@@ -13,6 +13,18 @@ public interface IUserService
         string? search = null,
         CancellationToken cancellationToken = default);
 
+    Task<UserProfileResponse> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task<UserProfileResponse> UpdateProfileAsync(
+        Guid userId,
+        UpdateProfileRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken = default);
+
     Task VerifyUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task BlockUserAsync(Guid userId, CancellationToken cancellationToken = default);

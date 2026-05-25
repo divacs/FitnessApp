@@ -6,6 +6,7 @@ using FitnessApp.Application.Features.Users.Interfaces;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -17,15 +18,18 @@ public class UserService : IUserService
 
     private readonly AppDbContext _dbContext;
     private readonly IEmailService _emailService;
+    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
         AppDbContext dbContext,
         IEmailService emailService,
+        UserManager<ApplicationUser> userManager,
         ILogger<UserService> logger)
     {
         _dbContext = dbContext;
         _emailService = emailService;
+        _userManager = userManager;
         _logger = logger;
     }
 
@@ -85,6 +89,69 @@ public class UserService : IUserService
             totalCount);
     }
 
+    public async Task<UserProfileResponse> GetProfileAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(user => user.Id == userId && !user.IsDeleted, cancellationToken);
+
+        if (user is null)
+        {
+            throw new NotFoundException("Korisnik nije pronađen.");
+        }
+
+        return MapUserProfileResponse(user);
+    }
+
+    public async Task<UserProfileResponse> UpdateProfileAsync(
+        Guid userId,
+        UpdateProfileRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await GetUserAsync(userId, cancellationToken);
+
+        user.FirstName = request.FirstName.Trim();
+        user.LastName = request.LastName.Trim();
+        user.PhoneNumber = request.PhoneNumber.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("User {UserId} updated profile.", user.Id);
+
+        return MapUserProfileResponse(user);
+    }
+
+    public async Task ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null || user.IsDeleted)
+        {
+            throw new NotFoundException("Korisnik nije pronađen.");
+        }
+
+        var result = await _userManager.ChangePasswordAsync(
+            user,
+            request.CurrentPassword,
+            request.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            throw CreateBadRequestException("Promena lozinke nije uspela.", result);
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        _logger.LogInformation("User {UserId} changed password.", user.Id);
+    }
+
     public async Task VerifyUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await GetUserAsync(userId, cancellationToken);
@@ -138,5 +205,30 @@ public class UserService : IUserService
         }
 
         return user;
+    }
+
+    private static UserProfileResponse MapUserProfileResponse(ApplicationUser user)
+    {
+        return new UserProfileResponse
+        {
+            Id = user.Id,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            FullName = user.FullName,
+            Email = user.Email ?? string.Empty,
+            PhoneNumber = user.PhoneNumber,
+            UserStatus = user.UserStatus,
+            CreatedAt = user.CreatedAt,
+            UpdatedAt = user.UpdatedAt
+        };
+    }
+
+    private static BadRequestException CreateBadRequestException(string message, IdentityResult result)
+    {
+        var errors = result.Errors
+            .Select(error => error.Description)
+            .ToArray();
+
+        return new BadRequestException(message, errors);
     }
 }

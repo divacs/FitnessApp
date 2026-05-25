@@ -1,4 +1,7 @@
+using FitnessApp.Application.Features.Auth.Validators;
 using FitnessApp.Application.Settings;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -16,6 +19,8 @@ public static class ServiceCollectionExtensions
     {
         services.AddApplicationSettings(configuration);
         services.AddControllers();
+        services.AddFluentValidationAutoValidation();
+        services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddAuthorization();
 
         return services;
