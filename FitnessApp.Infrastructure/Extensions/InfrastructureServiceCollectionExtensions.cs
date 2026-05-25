@@ -1,6 +1,8 @@
 using FitnessApp.Domain.Entities;
+using FitnessApp.Application.Features.Auth.Interfaces;
 using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
+using FitnessApp.Infrastructure.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -43,6 +45,7 @@ public static class InfrastructureServiceCollectionExtensions
             .AddDefaultTokenProviders();
 
         services.AddScoped<IIdentitySeeder, IdentitySeeder>();
+        services.AddScoped<ITokenService, TokenService>();
 
         return services;
     }
