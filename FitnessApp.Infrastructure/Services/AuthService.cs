@@ -61,7 +61,7 @@ public class AuthService : IAuthService
             throw CreateBadRequestException("Registracija nije uspela.", createResult);
         }
 
-        var roleResult = await _userManager.AddToRoleAsync(user, ApplicationRoles.User);
+        var roleResult = await _userManager.AddToRoleAsync(user, RoleConstants.User);
 
         if (!roleResult.Succeeded)
         {

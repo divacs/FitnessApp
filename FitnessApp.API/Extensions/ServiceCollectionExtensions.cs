@@ -21,7 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddControllers();
         services.AddFluentValidationAutoValidation();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
-        services.AddAuthorization();
+        services.AddAuthorizationPolicies();
 
         return services;
     }

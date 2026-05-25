@@ -1,5 +1,6 @@
 using FitnessApp.Application.Features.Auth.Interfaces;
 using FitnessApp.Application.Settings;
+using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
@@ -78,7 +79,7 @@ public class TokenService : ITokenService
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Role, role),
-            new("userStatus", user.UserStatus.ToString())
+            new(AuthClaimConstants.UserStatus, user.UserStatus.ToString())
         };
     }
 }

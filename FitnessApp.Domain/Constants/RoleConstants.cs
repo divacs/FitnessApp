@@ -1,6 +1,6 @@
 namespace FitnessApp.Domain.Constants;
 
-public static class ApplicationRoles
+public static class RoleConstants
 {
     public const string Admin = "Admin";
 

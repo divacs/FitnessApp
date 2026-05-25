@@ -2,13 +2,14 @@ using FitnessApp.API.Extensions;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Users.DTOs;
 using FitnessApp.Application.Features.Users.Interfaces;
+using FitnessApp.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = AuthorizationPolicyConstants.VerifiedUsersOnly)]
 [Route("api/users")]
 public class UsersController : ControllerBase
 {

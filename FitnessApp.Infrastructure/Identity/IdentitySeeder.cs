@@ -35,7 +35,7 @@ public class IdentitySeeder : IIdentitySeeder
 
     private async Task SeedRolesAsync(CancellationToken cancellationToken)
     {
-        foreach (var roleName in ApplicationRoles.All)
+        foreach (var roleName in RoleConstants.All)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -85,12 +85,12 @@ public class IdentitySeeder : IIdentitySeeder
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (await _userManager.IsInRoleAsync(adminUser, ApplicationRoles.Admin))
+        if (await _userManager.IsInRoleAsync(adminUser, RoleConstants.Admin))
         {
             return;
         }
 
-        var addRoleResult = await _userManager.AddToRoleAsync(adminUser, ApplicationRoles.Admin);
+        var addRoleResult = await _userManager.AddToRoleAsync(adminUser, RoleConstants.Admin);
 
         if (!addRoleResult.Succeeded)
         {

@@ -169,7 +169,7 @@ public class AuthServiceTests
         var roleManager = services.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
 
-        await roleManager.CreateAsync(new IdentityRole<Guid>(ApplicationRoles.User));
+        await roleManager.CreateAsync(new IdentityRole<Guid>(RoleConstants.User));
 
         var email = $"user-{Guid.NewGuid():N}@example.com";
         var user = new ApplicationUser
@@ -187,7 +187,7 @@ public class AuthServiceTests
         var createResult = await userManager.CreateAsync(user, Password);
         createResult.Succeeded.Should().BeTrue(string.Join("; ", createResult.Errors.Select(x => x.Description)));
 
-        var roleResult = await userManager.AddToRoleAsync(user, ApplicationRoles.User);
+        var roleResult = await userManager.AddToRoleAsync(user, RoleConstants.User);
         roleResult.Succeeded.Should().BeTrue(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
 
         return user;

@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FitnessApp.API.Controllers;
 
 [ApiController]
-[Authorize(Roles = ApplicationRoles.Admin)]
+[Authorize(Policy = AuthorizationPolicyConstants.AdminOnly)]
 [Route("api/admin/users")]
 public class AdminUsersController : ControllerBase
 {
