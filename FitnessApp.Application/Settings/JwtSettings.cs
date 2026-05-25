@@ -11,4 +11,6 @@ public sealed class JwtSettings
     public string Secret { get; init; } = string.Empty;
 
     public int ExpirationMinutes { get; init; }
+
+    public int RefreshTokenExpirationDays { get; init; }
 }

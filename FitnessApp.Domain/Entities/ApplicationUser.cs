@@ -82,4 +82,9 @@ public class ApplicationUser : IdentityUser<Guid>
     /// Notifications assigned to the user.
     /// </summary>
     public ICollection<UserNotification> Notifications { get; set; } = new List<UserNotification>();
+
+    /// <summary>
+    /// Refresh tokens issued to the user.
+    /// </summary>
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

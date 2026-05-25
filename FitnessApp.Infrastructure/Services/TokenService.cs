@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 
@@ -25,7 +26,7 @@ public class TokenService : ITokenService
 
     public async Task<string> GenerateAccessTokenAsync(ApplicationUser user)
     {
-        var expiresAt = GetTokenExpiration();
+        var expiresAt = GetAccessTokenExpiration();
         var signingCredentials = CreateSigningCredentials();
         var claims = await CreateClaimsAsync(user);
 
@@ -39,9 +40,24 @@ public class TokenService : ITokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    public DateTime GetTokenExpiration()
+    public string GenerateRefreshToken()
+    {
+        var randomBytes = new byte[64];
+
+        using var randomNumberGenerator = RandomNumberGenerator.Create();
+        randomNumberGenerator.GetBytes(randomBytes);
+
+        return Convert.ToBase64String(randomBytes);
+    }
+
+    public DateTime GetAccessTokenExpiration()
     {
         return DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes);
+    }
+
+    public DateTime GetRefreshTokenExpiration()
+    {
+        return DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpirationDays);
     }
 
     private SigningCredentials CreateSigningCredentials()

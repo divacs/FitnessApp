@@ -6,5 +6,9 @@ public interface ITokenService
 {
     Task<string> GenerateAccessTokenAsync(ApplicationUser user);
 
-    DateTime GetTokenExpiration();
+    string GenerateRefreshToken();
+
+    DateTime GetAccessTokenExpiration();
+
+    DateTime GetRefreshTokenExpiration();
 }
