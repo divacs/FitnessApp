@@ -32,6 +32,60 @@ public class TrainingServiceTests
     }
 
     [Fact]
+    public async Task GetUpcomingTrainingsAsync_ShouldExcludeCancelledTrainingsByDefault()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var activeTraining = CreateTraining(DateTime.UtcNow.AddDays(1), "Aktivan trening");
+        var cancelledTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Otkazan trening");
+        cancelledTraining.IsCancelled = true;
+        dbContext.TrainingSessions.AddRange(activeTraining, cancelledTraining);
+        await dbContext.SaveChangesAsync();
+
+        var response = await trainingService.GetUpcomingTrainingsAsync();
+
+        response.Should().ContainSingle();
+        response.Single().Id.Should().Be(activeTraining.Id);
+    }
+
+    [Fact]
+    public async Task GetUpcomingTrainingsAsync_WhenCancelledFilterIsTrue_ShouldReturnCancelledTrainings()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var activeTraining = CreateTraining(DateTime.UtcNow.AddDays(1), "Aktivan trening");
+        var cancelledTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Otkazan trening");
+        cancelledTraining.IsCancelled = true;
+        dbContext.TrainingSessions.AddRange(activeTraining, cancelledTraining);
+        await dbContext.SaveChangesAsync();
+
+        var response = await trainingService.GetUpcomingTrainingsAsync(isCancelled: true);
+
+        response.Should().ContainSingle();
+        response.Single().Id.Should().Be(cancelledTraining.Id);
+    }
+
+    [Fact]
+    public async Task GetUpcomingTrainingsAsync_WhenDateFilterIsApplied_ShouldReturnTrainingsForThatDate()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var requestedDate = DateTime.UtcNow.AddDays(3).Date;
+        var matchingTraining = CreateTraining(requestedDate.AddHours(10), "Trazeni trening");
+        var otherTraining = CreateTraining(requestedDate.AddDays(1).AddHours(10), "Drugi trening");
+        dbContext.TrainingSessions.AddRange(matchingTraining, otherTraining);
+        await dbContext.SaveChangesAsync();
+
+        var response = await trainingService.GetUpcomingTrainingsAsync(date: requestedDate);
+
+        response.Should().ContainSingle();
+        response.Single().Id.Should().Be(matchingTraining.Id);
+    }
+
+    [Fact]
     public async Task GetTrainingByIdAsync_ShouldReturnTrainingWithReservedCount()
     {
         var services = CreateServiceProvider();

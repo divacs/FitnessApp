@@ -23,14 +23,34 @@ public class TrainingService : ITrainingService
     }
 
     public async Task<IReadOnlyCollection<TrainingCalendarResponse>> GetUpcomingTrainingsAsync(
+        DateTime? date = null,
+        bool? isCancelled = false,
         CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
 
-        var trainings = await _dbContext.TrainingSessions
+        var query = _dbContext.TrainingSessions
             .AsNoTracking()
             .Include(training => training.Reservations)
             .Where(training => training.StartTime > utcNow)
+            .AsQueryable();
+
+        if (date.HasValue)
+        {
+            var dayStart = date.Value.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            query = query.Where(training =>
+                training.StartTime >= dayStart
+                && training.StartTime < dayEnd);
+        }
+
+        if (isCancelled.HasValue)
+        {
+            query = query.Where(training => training.IsCancelled == isCancelled.Value);
+        }
+
+        var trainings = await query
             .OrderBy(training => training.StartTime)
             .ToListAsync(cancellationToken);
 
