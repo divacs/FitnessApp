@@ -131,7 +131,7 @@ public class BalanceService : IBalanceService
         Guid adminId,
         CancellationToken cancellationToken = default)
     {
-        throw new BadRequestException("Dodavanje pojedinačnih termina biće implementirano u narednom koraku.");
+        return AddSingleSessionsInternalAsync(userId, request, adminId, cancellationToken);
     }
 
     public Task<UserTrainingBalanceResponse> UpdateBalanceAsync(
@@ -216,6 +216,79 @@ public class BalanceService : IBalanceService
             "Created {PurchaseType} balance {BalanceId} for user {UserId} by admin {AdminId}.",
             purchaseType,
             balance.Id,
+            userId,
+            adminId);
+
+        return balance.ToResponse();
+    }
+
+    private async Task<UserTrainingBalanceResponse> AddSingleSessionsInternalAsync(
+        Guid userId,
+        AddSingleSessionsRequest request,
+        Guid adminId,
+        CancellationToken cancellationToken)
+    {
+        if (request.NumberOfSessions <= 0)
+        {
+            throw new BadRequestException("Broj termina mora biti veći od 0.");
+        }
+
+        await EnsureUserExistsAsync(userId, cancellationToken);
+
+        var activeSingleSessionsBalance = await _dbContext.UserTrainingBalances
+            .FirstOrDefaultAsync(
+                balance =>
+                    balance.UserId == userId
+                    && balance.PurchaseType == PurchaseType.SingleSessions
+                    && balance.IsActive
+                    && !balance.IsExpired,
+                cancellationToken);
+
+        if (activeSingleSessionsBalance is not null)
+        {
+            activeSingleSessionsBalance.TotalSessions += request.NumberOfSessions;
+            activeSingleSessionsBalance.RemainingSessions += request.NumberOfSessions;
+
+            if (!string.IsNullOrWhiteSpace(request.Notes))
+            {
+                activeSingleSessionsBalance.Notes = request.Notes;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation(
+                "Added {NumberOfSessions} single sessions to balance {BalanceId} for user {UserId} by admin {AdminId}.",
+                request.NumberOfSessions,
+                activeSingleSessionsBalance.Id,
+                userId,
+                adminId);
+
+            return activeSingleSessionsBalance.ToResponse();
+        }
+
+        var balance = new UserTrainingBalance
+        {
+            UserId = userId,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = request.NumberOfSessions,
+            RemainingSessions = request.NumberOfSessions,
+            StartDate = DateTime.UtcNow,
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedByAdminId = adminId,
+            CreatedAt = DateTime.UtcNow,
+            Notes = request.Notes
+        };
+
+        _dbContext.UserTrainingBalances.Add(balance);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Created single sessions balance {BalanceId} with {NumberOfSessions} sessions for user {UserId} by admin {AdminId}.",
+            balance.Id,
+            request.NumberOfSessions,
             userId,
             adminId);
 

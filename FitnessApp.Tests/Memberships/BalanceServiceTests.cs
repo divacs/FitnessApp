@@ -1,5 +1,6 @@
 using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Memberships.Interfaces;
+using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
@@ -109,6 +110,102 @@ public class BalanceServiceTests
             .CountAsync(balance => balance.UserId == user.Id && balance.PurchaseType == PurchaseType.Package12);
 
         packageCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task AddSingleSessionsAsync_WhenActiveBalanceDoesNotExist_ShouldCreateSingleSessionsBalance()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var adminId = Guid.NewGuid();
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.AddSingleSessionsAsync(
+            user.Id,
+            new AddSingleSessionsRequest
+            {
+                NumberOfSessions = 3,
+                Notes = "Tri pojedinačna termina"
+            },
+            adminId);
+
+        response.PurchaseType.Should().Be(PurchaseType.SingleSessions);
+        response.TotalSessions.Should().Be(3);
+        response.RemainingSessions.Should().Be(3);
+        response.EndDate.Should().BeNull();
+        response.IsActive.Should().BeTrue();
+        response.IsExpired.Should().BeFalse();
+        response.Notes.Should().Be("Tri pojedinačna termina");
+
+        var storedBalance = await dbContext.UserTrainingBalances.SingleAsync();
+        storedBalance.CreatedByAdminId.Should().Be(adminId);
+        storedBalance.EndDate.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AddSingleSessionsAsync_WhenActiveBalanceExists_ShouldIncreaseTotalsAndUpdateNotes()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 2,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow.AddDays(-2),
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-2),
+            Notes = "Stara napomena"
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.AddSingleSessionsAsync(
+            user.Id,
+            new AddSingleSessionsRequest
+            {
+                NumberOfSessions = 4,
+                Notes = "Nova napomena"
+            },
+            Guid.NewGuid());
+
+        response.TotalSessions.Should().Be(6);
+        response.RemainingSessions.Should().Be(5);
+        response.Notes.Should().Be("Nova napomena");
+
+        var balanceCount = await dbContext.UserTrainingBalances.CountAsync();
+        balanceCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AddSingleSessionsAsync_WhenNumberOfSessionsIsNotPositive_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var user = CreateUser();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => balanceService.AddSingleSessionsAsync(
+            user.Id,
+            new AddSingleSessionsRequest
+            {
+                NumberOfSessions = 0
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Broj termina mora biti veći od 0.");
     }
 
     private static ServiceProvider CreateServiceProvider()
