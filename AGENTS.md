@@ -272,10 +272,50 @@ Korisnik može imati maksimalno:
 2 naredne rezervacije
 ```
 
+Rezervacija SME da se napravi i kada korisnik:
+- nema aktivan paket
+- nema dostupne termine
+- ima isteklu članarinu
+
+Razlog:
+- korisnik može doći na trening i platiti kod Sare neposredno pre ili posle treninga
+
 Ne postoji:
 - waitlist
 - ACTIVE/INACTIVE status
 - limit članova
+
+---
+
+## Reservation Without Active Membership
+
+Rezervacija proverava SAMO:
+- korisnik je VERIFIED
+- korisnik nije BLOCKED
+- trening nije otkazan
+- trening nije u prošlosti
+- trening nije popunjen
+- korisnik nema rezervisan isti trening
+- korisnik nema više od 2 naredne rezervacije
+
+Rezervacija NE SME proveravati:
+- aktivan paket
+- stanje članarine
+- broj dostupnih termina
+- `CurrentBalance`
+- `RemainingSessions`
+
+Termini se NE proveravaju pri rezervaciji.
+
+Termini se proveravaju i skidaju TEK kada rezervacija postane:
+- ATTENDED
+- NO_SHOW
+
+Ovo pravilo mora ostati usklađeno sa pravilom:
+
+```text
+Termin se NE skida pri rezervaciji.
+```
 
 ---
 
