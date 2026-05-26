@@ -29,25 +29,33 @@ public class BalanceService : IBalanceService
     {
         await EnsureUserExistsAsync(userId, cancellationToken);
 
-        var activeBalances = await _dbContext.UserTrainingBalances
+        var utcNow = DateTime.UtcNow;
+
+        var activePackage = await _dbContext.UserTrainingBalances
             .AsNoTracking()
             .Where(balance =>
                 balance.UserId == userId
                 && balance.IsActive
-                && !balance.IsExpired)
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0
+                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                && balance.EndDate >= utcNow)
             .OrderBy(balance => balance.EndDate)
             .ThenByDescending(balance => balance.CreatedAt)
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var activePackage = activeBalances
-            .Where(balance => balance.PurchaseType is PurchaseType.Package12 or PurchaseType.Package6)
-            .FirstOrDefault();
+        var singleSessionsRemaining = await _dbContext.UserTrainingBalances
+            .AsNoTracking()
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.PurchaseType == PurchaseType.SingleSessions
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0)
+            .SumAsync(balance => balance.RemainingSessions, cancellationToken);
 
-        var singleSessionsRemaining = activeBalances
-            .Where(balance => balance.PurchaseType == PurchaseType.SingleSessions)
-            .Sum(balance => balance.RemainingSessions);
-
-        var totalRemainingSessions = activeBalances.Sum(balance => balance.RemainingSessions);
+        var activePackageRemainingSessions = activePackage?.RemainingSessions ?? 0;
+        var totalRemainingSessions = activePackageRemainingSessions + singleSessionsRemaining;
 
         return new CurrentBalanceResponse
         {

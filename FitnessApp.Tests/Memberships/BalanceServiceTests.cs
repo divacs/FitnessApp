@@ -208,6 +208,146 @@ public class BalanceServiceTests
             .WithMessage("Broj termina mora biti veći od 0.");
     }
 
+    [Fact]
+    public async Task GetCurrentBalanceAsync_WhenUserHasNoBalances_ShouldReturnEmptyBalance()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().BeNull();
+        response.SingleSessionsRemaining.Should().Be(0);
+        response.TotalRemainingSessions.Should().Be(0);
+        response.HasAvailableSessions.Should().BeFalse();
+        response.MembershipExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetCurrentBalanceAsync_ShouldReturnActivePackageAndSingleSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var packageEndDate = DateTime.UtcNow.AddDays(20);
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package12,
+                TotalSessions = 12,
+                RemainingSessions = 7,
+                StartDate = DateTime.UtcNow.AddDays(-10),
+                EndDate = packageEndDate,
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow.AddDays(-10)
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.SingleSessions,
+                TotalSessions = 3,
+                RemainingSessions = 2,
+                StartDate = DateTime.UtcNow.AddDays(-5),
+                EndDate = null,
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow.AddDays(-5)
+            });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().NotBeNull();
+        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package12);
+        response.ActivePackage.RemainingSessions.Should().Be(7);
+        response.SingleSessionsRemaining.Should().Be(2);
+        response.TotalRemainingSessions.Should().Be(9);
+        response.HasAvailableSessions.Should().BeTrue();
+        response.MembershipExpiresAt.Should().Be(packageEndDate);
+    }
+
+    [Fact]
+    public async Task GetCurrentBalanceAsync_ShouldIgnoreExpiredInactiveAndEmptyBalances()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package12,
+                TotalSessions = 12,
+                RemainingSessions = 5,
+                StartDate = DateTime.UtcNow.AddMonths(-2),
+                EndDate = DateTime.UtcNow.AddDays(-1),
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow.AddMonths(-2)
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package6,
+                TotalSessions = 6,
+                RemainingSessions = 0,
+                StartDate = DateTime.UtcNow,
+                EndDate = DateTime.UtcNow.AddMonths(1),
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.SingleSessions,
+                TotalSessions = 4,
+                RemainingSessions = 4,
+                StartDate = DateTime.UtcNow,
+                EndDate = null,
+                IsActive = false,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.SingleSessions,
+                TotalSessions = 2,
+                RemainingSessions = 0,
+                StartDate = DateTime.UtcNow,
+                EndDate = null,
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow
+            });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().BeNull();
+        response.SingleSessionsRemaining.Should().Be(0);
+        response.TotalRemainingSessions.Should().Be(0);
+        response.HasAvailableSessions.Should().BeFalse();
+        response.MembershipExpiresAt.Should().BeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
