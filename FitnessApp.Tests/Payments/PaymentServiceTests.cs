@@ -92,6 +92,38 @@ public class PaymentServiceTests
     }
 
     [Fact]
+    public async Task CreatePaymentAsync_WhenPackage6_ShouldCreatePaymentAndBalance()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+        var user = CreateUser();
+        var startDate = new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var response = await paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = user.Id,
+                Amount = 3000,
+                PaymentDate = startDate,
+                PaymentType = PurchaseType.Package6,
+                StartDate = startDate
+            },
+            Guid.NewGuid());
+
+        response.PaymentType.Should().Be(PurchaseType.Package6);
+        response.NumberOfSessions.Should().Be(6);
+
+        var balance = await dbContext.UserTrainingBalances.SingleAsync();
+        balance.PurchaseType.Should().Be(PurchaseType.Package6);
+        balance.TotalSessions.Should().Be(6);
+        balance.RemainingSessions.Should().Be(6);
+        balance.EndDate.Should().Be(startDate.AddMonths(1));
+    }
+
+    [Fact]
     public async Task CreatePaymentAsync_WhenUserDoesNotExist_ShouldThrowNotFound()
     {
         var services = CreateServiceProvider();
@@ -110,6 +142,88 @@ public class PaymentServiceTests
 
         await act.Should().ThrowAsync<NotFoundException>()
             .WithMessage("Korisnik nije pronađen.");
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_WhenAmountIsNegative_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = Guid.NewGuid(),
+                Amount = -1,
+                PaymentDate = DateTime.UtcNow,
+                PaymentType = PurchaseType.SingleSessions,
+                NumberOfSessions = 1
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Iznos ne može biti negativan.");
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_WhenPaymentDateIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = Guid.NewGuid(),
+                Amount = 1000,
+                PaymentDate = default,
+                PaymentType = PurchaseType.SingleSessions,
+                NumberOfSessions = 1
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Datum uplate je obavezan.");
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_WhenPackageStartDateIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = Guid.NewGuid(),
+                Amount = 1000,
+                PaymentDate = DateTime.UtcNow,
+                PaymentType = PurchaseType.Package12
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Datum početka je obavezan za paket.");
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_WhenSingleSessionsNumberIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = Guid.NewGuid(),
+                Amount = 1000,
+                PaymentDate = DateTime.UtcNow,
+                PaymentType = PurchaseType.SingleSessions
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Broj termina mora biti veći od 0.");
     }
 
     [Fact]
@@ -180,6 +294,42 @@ public class PaymentServiceTests
         response.Amount.Should().Be(2500);
         response.PaymentDate.Should().Be(paymentDate);
         response.Note.Should().Be("Ažurirana uplata");
+    }
+
+    [Fact]
+    public async Task UpdatePaymentAsync_WhenAmountIsNegative_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.UpdatePaymentAsync(
+            Guid.NewGuid(),
+            new UpdatePaymentRequest
+            {
+                Amount = -1,
+                PaymentDate = DateTime.UtcNow
+            });
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Iznos ne može biti negativan.");
+    }
+
+    [Fact]
+    public async Task UpdatePaymentAsync_WhenPaymentDateIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+
+        var act = () => paymentService.UpdatePaymentAsync(
+            Guid.NewGuid(),
+            new UpdatePaymentRequest
+            {
+                Amount = 1000,
+                PaymentDate = default
+            });
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Datum uplate je obavezan.");
     }
 
     [Fact]

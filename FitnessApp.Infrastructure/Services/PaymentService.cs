@@ -36,6 +36,8 @@ public class PaymentService : IPaymentService
         Guid adminId,
         CancellationToken cancellationToken = default)
     {
+        ValidateCreatePaymentRequest(request);
+
         await EnsureUserExistsAsync(request.UserId, cancellationToken);
 
         var payment = new Payment
@@ -74,6 +76,8 @@ public class PaymentService : IPaymentService
         UpdatePaymentRequest request,
         CancellationToken cancellationToken = default)
     {
+        ValidateUpdatePaymentRequest(request);
+
         var payment = await _dbContext.Payments
             .Include(payment => payment.User)
             .FirstOrDefaultAsync(payment => payment.Id == paymentId, cancellationToken);
@@ -174,6 +178,52 @@ public class PaymentService : IPaymentService
         {
             _logger.LogWarning("Payment requested for missing user {UserId}.", userId);
             throw new NotFoundException("Korisnik nije pronađen.");
+        }
+    }
+
+    private static void ValidateCreatePaymentRequest(CreatePaymentRequest request)
+    {
+        if (request.UserId == Guid.Empty)
+        {
+            throw new BadRequestException("Korisnik je obavezan.");
+        }
+
+        if (request.Amount < 0)
+        {
+            throw new BadRequestException("Iznos ne može biti negativan.");
+        }
+
+        if (request.PaymentDate == default)
+        {
+            throw new BadRequestException("Datum uplate je obavezan.");
+        }
+
+        if (!Enum.IsDefined(request.PaymentType))
+        {
+            throw new BadRequestException("Tip uplate nije validan.");
+        }
+
+        if (request.PaymentType == PurchaseType.SingleSessions)
+        {
+            _ = GetRequiredNumberOfSessions(request);
+        }
+
+        if (request.PaymentType is PurchaseType.Package12 or PurchaseType.Package6)
+        {
+            _ = GetRequiredStartDate(request);
+        }
+    }
+
+    private static void ValidateUpdatePaymentRequest(UpdatePaymentRequest request)
+    {
+        if (request.Amount < 0)
+        {
+            throw new BadRequestException("Iznos ne može biti negativan.");
+        }
+
+        if (request.PaymentDate == default)
+        {
+            throw new BadRequestException("Datum uplate je obavezan.");
         }
     }
 
