@@ -263,10 +263,60 @@ public class PaymentServiceTests
             CreatePayment(otherUser.Id, DateTime.UtcNow));
         await dbContext.SaveChangesAsync();
 
-        var response = await paymentService.GetUserPaymentsAsync(user.Id);
+        var response = await paymentService.GetUserPaymentsAsync(user.Id, page: 1, pageSize: 20);
 
-        response.Should().ContainSingle();
-        response.Single().UserId.Should().Be(user.Id);
+        response.TotalCount.Should().Be(1);
+        response.Items.Should().ContainSingle();
+        response.Items.Single().UserId.Should().Be(user.Id);
+    }
+
+    [Fact]
+    public async Task GetPaymentsAsync_WhenFiltersAreApplied_ShouldReturnMatchingPayments()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+        var user = CreateUser(firstName: "Ana", lastName: "Markovic");
+        var otherUser = CreateUser(firstName: "Mila", lastName: "Petrovic");
+        dbContext.Users.AddRange(user, otherUser);
+        dbContext.Payments.AddRange(
+            new Payment
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                Amount = 4500,
+                PaymentDate = new DateTime(2026, 5, 10, 0, 0, 0, DateTimeKind.Utc),
+                PaymentType = PurchaseType.Package12,
+                NumberOfSessions = 12,
+                CreatedAt = DateTime.UtcNow,
+                Note = "Maj paket"
+            },
+            new Payment
+            {
+                Id = Guid.NewGuid(),
+                UserId = otherUser.Id,
+                Amount = 1500,
+                PaymentDate = new DateTime(2026, 6, 10, 0, 0, 0, DateTimeKind.Utc),
+                PaymentType = PurchaseType.SingleSessions,
+                NumberOfSessions = 3,
+                CreatedAt = DateTime.UtcNow,
+                Note = "Pojedinacno"
+            });
+        await dbContext.SaveChangesAsync();
+
+        var response = await paymentService.GetPaymentsAsync(
+            page: 1,
+            pageSize: 20,
+            paymentType: PurchaseType.Package12,
+            userId: user.Id,
+            fromDate: new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            toDate: new DateTime(2026, 5, 31, 0, 0, 0, DateTimeKind.Utc),
+            search: "Ana");
+
+        response.TotalCount.Should().Be(1);
+        response.Items.Should().ContainSingle();
+        response.Items.Single().UserId.Should().Be(user.Id);
+        response.Items.Single().PaymentType.Should().Be(PurchaseType.Package12);
     }
 
     [Fact]
@@ -366,7 +416,9 @@ public class PaymentServiceTests
         return services.BuildServiceProvider();
     }
 
-    private static ApplicationUser CreateUser()
+    private static ApplicationUser CreateUser(
+        string firstName = "Test",
+        string lastName = "User")
     {
         var email = $"user-{Guid.NewGuid():N}@example.com";
 
@@ -375,8 +427,8 @@ public class PaymentServiceTests
             Id = Guid.NewGuid(),
             UserName = email,
             Email = email,
-            FirstName = "Test",
-            LastName = "User",
+            FirstName = firstName,
+            LastName = lastName,
             PhoneNumber = "+381600000000",
             UserStatus = UserStatus.Verified,
             EmailConfirmed = true,

@@ -119,51 +119,44 @@ public class PaymentService : IPaymentService
     public async Task<PaginatedResponse<PaymentResponse>> GetPaymentsAsync(
         int page,
         int pageSize,
+        PurchaseType? paymentType = null,
+        Guid? userId = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var normalizedPage = Math.Max(page, 1);
-        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-
         var query = _dbContext.Payments
             .AsNoTracking()
             .Include(payment => payment.User)
-            .OrderByDescending(payment => payment.PaymentDate)
-            .ThenByDescending(payment => payment.CreatedAt);
+            .AsQueryable();
 
-        var totalCount = await query.CountAsync(cancellationToken);
-        var payments = await query
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
-            .ToListAsync(cancellationToken);
+        query = ApplyFilters(query, paymentType, userId, fromDate, toDate, search);
 
-        var items = payments
-            .Select(payment => payment.ToResponse())
-            .ToArray();
-
-        return new PaginatedResponse<PaymentResponse>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return await GetPaginatedPaymentsAsync(query, page, pageSize, cancellationToken);
     }
 
-    public async Task<IReadOnlyCollection<PaymentResponse>> GetUserPaymentsAsync(
+    public async Task<PaginatedResponse<PaymentResponse>> GetUserPaymentsAsync(
         Guid userId,
+        int page,
+        int pageSize,
+        PurchaseType? paymentType = null,
+        DateTime? fromDate = null,
+        DateTime? toDate = null,
+        string? search = null,
         CancellationToken cancellationToken = default)
     {
         await EnsureUserExistsAsync(userId, cancellationToken);
 
-        var payments = await _dbContext.Payments
+        var query = _dbContext.Payments
             .AsNoTracking()
             .Include(payment => payment.User)
             .Where(payment => payment.UserId == userId)
-            .OrderByDescending(payment => payment.PaymentDate)
-            .ThenByDescending(payment => payment.CreatedAt)
-            .ToListAsync(cancellationToken);
+            .AsQueryable();
 
-        return payments
-            .Select(payment => payment.ToResponse())
-            .ToArray();
+        query = ApplyFilters(query, paymentType, userId: null, fromDate, toDate, search);
+
+        return await GetPaginatedPaymentsAsync(query, page, pageSize, cancellationToken);
     }
 
     private async Task EnsureUserExistsAsync(
@@ -321,5 +314,75 @@ public class PaymentService : IPaymentService
         }
 
         return request.StartDate.Value;
+    }
+
+    private static IQueryable<Payment> ApplyFilters(
+        IQueryable<Payment> query,
+        PurchaseType? paymentType,
+        Guid? userId,
+        DateTime? fromDate,
+        DateTime? toDate,
+        string? search)
+    {
+        if (paymentType.HasValue)
+        {
+            query = query.Where(payment => payment.PaymentType == paymentType.Value);
+        }
+
+        if (userId.HasValue)
+        {
+            query = query.Where(payment => payment.UserId == userId.Value);
+        }
+
+        if (fromDate.HasValue)
+        {
+            query = query.Where(payment => payment.PaymentDate >= fromDate.Value);
+        }
+
+        if (toDate.HasValue)
+        {
+            query = query.Where(payment => payment.PaymentDate <= toDate.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var trimmedSearch = search.Trim();
+
+            query = query.Where(payment =>
+                payment.User.FirstName.Contains(trimmedSearch)
+                || payment.User.LastName.Contains(trimmedSearch)
+                || (payment.User.Email != null && payment.User.Email.Contains(trimmedSearch))
+                || (payment.Note != null && payment.Note.Contains(trimmedSearch)));
+        }
+
+        return query;
+    }
+
+    private static async Task<PaginatedResponse<PaymentResponse>> GetPaginatedPaymentsAsync(
+        IQueryable<Payment> query,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPage = Math.Max(page, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var payments = await query
+            .OrderByDescending(payment => payment.PaymentDate)
+            .ThenByDescending(payment => payment.CreatedAt)
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = payments
+            .Select(payment => payment.ToResponse())
+            .ToArray();
+
+        return new PaginatedResponse<PaymentResponse>(
+            items,
+            normalizedPage,
+            normalizedPageSize,
+            totalCount);
     }
 }
