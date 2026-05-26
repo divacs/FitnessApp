@@ -1,0 +1,213 @@
+using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Features.Trainings.DTOs;
+using FitnessApp.Application.Features.Trainings.Interfaces;
+using FitnessApp.Application.Features.Trainings.Mappings;
+using FitnessApp.Domain.Entities;
+using FitnessApp.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
+namespace FitnessApp.Infrastructure.Services;
+
+public class TrainingService : ITrainingService
+{
+    private readonly AppDbContext _dbContext;
+    private readonly ILogger<TrainingService> _logger;
+
+    public TrainingService(
+        AppDbContext dbContext,
+        ILogger<TrainingService> logger)
+    {
+        _dbContext = dbContext;
+        _logger = logger;
+    }
+
+    public async Task<IReadOnlyCollection<TrainingCalendarResponse>> GetUpcomingTrainingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var utcNow = DateTime.UtcNow;
+
+        var trainings = await _dbContext.TrainingSessions
+            .AsNoTracking()
+            .Include(training => training.Reservations)
+            .Where(training => training.StartTime > utcNow)
+            .OrderBy(training => training.StartTime)
+            .ToListAsync(cancellationToken);
+
+        return trainings
+            .Select(training => training.ToCalendarResponse())
+            .ToArray();
+    }
+
+    public async Task<TrainingSessionResponse> GetTrainingByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTrainingId(id);
+
+        var training = await _dbContext.TrainingSessions
+            .AsNoTracking()
+            .Include(training => training.Reservations)
+            .FirstOrDefaultAsync(training => training.Id == id, cancellationToken);
+
+        if (training is null)
+        {
+            throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        return training.ToResponse();
+    }
+
+    public async Task<TrainingSessionResponse> CreateTrainingAsync(
+        CreateTrainingSessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTrainingTimes(request.StartTime, request.EndTime);
+        ValidateCapacity(request.Capacity);
+
+        var training = new TrainingSession
+        {
+            Title = request.Title.Trim(),
+            Description = request.Description?.Trim() ?? string.Empty,
+            StartTime = request.StartTime,
+            EndTime = request.EndTime,
+            Capacity = request.Capacity,
+            TrainerName = string.IsNullOrWhiteSpace(request.TrainerName)
+                ? "Sara"
+                : request.TrainerName.Trim(),
+            Location = request.Location?.Trim() ?? string.Empty,
+            IsCancelled = false,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.TrainingSessions.Add(training);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Created training session {TrainingSessionId}.", training.Id);
+
+        return training.ToResponse();
+    }
+
+    public async Task<TrainingSessionResponse> UpdateTrainingAsync(
+        Guid id,
+        UpdateTrainingSessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTrainingId(id);
+        ValidateTrainingTimes(request.StartTime, request.EndTime);
+        ValidateCapacity(request.Capacity);
+
+        var training = await GetTrackedTrainingAsync(id, cancellationToken);
+
+        training.Title = request.Title.Trim();
+        training.Description = request.Description?.Trim() ?? string.Empty;
+        training.StartTime = request.StartTime;
+        training.EndTime = request.EndTime;
+        training.Capacity = request.Capacity;
+        training.IsCancelled = request.IsCancelled;
+        training.CancellationReason = request.CancellationReason?.Trim();
+        training.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Updated training session {TrainingSessionId}.", training.Id);
+
+        return training.ToResponse();
+    }
+
+    public async Task<TrainingSessionResponse> CancelTrainingAsync(
+        Guid id,
+        string? cancellationReason = null,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTrainingId(id);
+
+        var training = await GetTrackedTrainingAsync(id, cancellationToken);
+
+        training.IsCancelled = true;
+        training.CancellationReason = cancellationReason?.Trim();
+        training.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Cancelled training session {TrainingSessionId}.", training.Id);
+
+        return training.ToResponse();
+    }
+
+    public async Task DeleteTrainingAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateTrainingId(id);
+
+        var training = await _dbContext.TrainingSessions
+            .FirstOrDefaultAsync(training => training.Id == id, cancellationToken);
+
+        if (training is null)
+        {
+            throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        _dbContext.TrainingSessions.Remove(training);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Deleted training session {TrainingSessionId}.", id);
+    }
+
+    private async Task<TrainingSession> GetTrackedTrainingAsync(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var training = await _dbContext.TrainingSessions
+            .Include(training => training.Reservations)
+            .FirstOrDefaultAsync(training => training.Id == id, cancellationToken);
+
+        if (training is null)
+        {
+            throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        return training;
+    }
+
+    private static void ValidateTrainingId(Guid id)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new BadRequestException("Trening je obavezan.");
+        }
+    }
+
+    private static void ValidateTrainingTimes(DateTime startTime, DateTime endTime)
+    {
+        if (startTime == default)
+        {
+            throw new BadRequestException("Vreme početka je obavezno.");
+        }
+
+        if (startTime <= DateTime.UtcNow)
+        {
+            throw new BadRequestException("Vreme početka mora biti u budućnosti.");
+        }
+
+        if (endTime == default)
+        {
+            throw new BadRequestException("Vreme završetka je obavezno.");
+        }
+
+        if (endTime <= startTime)
+        {
+            throw new BadRequestException("Vreme završetka mora biti nakon vremena početka.");
+        }
+    }
+
+    private static void ValidateCapacity(int capacity)
+    {
+        if (capacity <= 0)
+        {
+            throw new BadRequestException("Kapacitet mora biti veći od 0.");
+        }
+    }
+}
