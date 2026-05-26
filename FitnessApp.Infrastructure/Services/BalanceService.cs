@@ -142,6 +142,68 @@ public class BalanceService : IBalanceService
         return AddSingleSessionsInternalAsync(userId, request, adminId, cancellationToken);
     }
 
+    public async Task ApplyCarryOverAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureUserExistsAsync(userId, cancellationToken);
+
+        var package12Balances = await _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.PurchaseType == PurchaseType.Package12)
+            .OrderByDescending(balance => balance.StartDate)
+            .ThenByDescending(balance => balance.CreatedAt)
+            .Take(2)
+            .ToListAsync(cancellationToken);
+
+        if (package12Balances.Count < 2)
+        {
+            _logger.LogInformation(
+                "Carry-over skipped for user {UserId} because there is no previous Package12 balance.",
+                userId);
+            return;
+        }
+
+        var newPackage = package12Balances[0];
+        var previousPackage = package12Balances[1];
+
+        if (newPackage.CarriedOverSessions > 0)
+        {
+            _logger.LogInformation(
+                "Carry-over skipped for Package12 balance {BalanceId} because it already has {CarriedOverSessions} carried sessions.",
+                newPackage.Id,
+                newPackage.CarriedOverSessions);
+            return;
+        }
+
+        if (previousPackage.RemainingSessions <= 0)
+        {
+            _logger.LogInformation(
+                "Carry-over skipped from Package12 balance {PreviousBalanceId} because there are no remaining sessions.",
+                previousPackage.Id);
+            return;
+        }
+
+        var carriedOverSessions = Math.Min(previousPackage.RemainingSessions, 2);
+
+        newPackage.TotalSessions += carriedOverSessions;
+        newPackage.RemainingSessions += carriedOverSessions;
+        newPackage.CarriedOverSessions = carriedOverSessions;
+
+        previousPackage.IsExpired = true;
+        previousPackage.IsActive = false;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Carried over {CarriedOverSessions} sessions from Package12 balance {PreviousBalanceId} to Package12 balance {NewBalanceId} for user {UserId}.",
+            carriedOverSessions,
+            previousPackage.Id,
+            newPackage.Id,
+            userId);
+    }
+
     public async Task ConsumeSessionAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -265,6 +327,11 @@ public class BalanceService : IBalanceService
         _dbContext.UserTrainingBalances.Add(balance);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
+
+        if (purchaseType == PurchaseType.Package12)
+        {
+            await ApplyCarryOverAsync(userId, cancellationToken);
+        }
 
         _logger.LogInformation(
             "Created {PurchaseType} balance {BalanceId} for user {UserId} by admin {AdminId}.",

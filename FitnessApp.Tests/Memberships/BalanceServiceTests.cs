@@ -113,6 +113,143 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task CreatePackage12Async_WhenPreviousPackage12HasRemainingSessions_ShouldCarryOverMaximumTwoSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var previousPackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 5,
+            StartDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(previousPackage);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.CreatePackage12Async(
+            user.Id,
+            new CreatePackage12Request
+            {
+                StartDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            Guid.NewGuid());
+
+        response.TotalSessions.Should().Be(14);
+        response.RemainingSessions.Should().Be(14);
+        response.CarriedOverSessions.Should().Be(2);
+
+        var updatedPreviousPackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == previousPackage.Id);
+        updatedPreviousPackage.IsActive.Should().BeFalse();
+        updatedPreviousPackage.IsExpired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApplyCarryOverAsync_ShouldUseOnlyImmediatePreviousPackage12()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var olderPackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 2,
+            StartDate = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+        var immediatePreviousPackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 1,
+            StartDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+        };
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(olderPackage, immediatePreviousPackage);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.CreatePackage12Async(
+            user.Id,
+            new CreatePackage12Request
+            {
+                StartDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            Guid.NewGuid());
+
+        response.TotalSessions.Should().Be(13);
+        response.RemainingSessions.Should().Be(13);
+        response.CarriedOverSessions.Should().Be(1);
+
+        var updatedOlderPackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == olderPackage.Id);
+        var updatedImmediatePreviousPackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == immediatePreviousPackage.Id);
+        updatedOlderPackage.IsActive.Should().BeTrue();
+        updatedOlderPackage.IsExpired.Should().BeFalse();
+        updatedImmediatePreviousPackage.IsActive.Should().BeFalse();
+        updatedImmediatePreviousPackage.IsExpired.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ApplyCarryOverAsync_WhenCalledTwice_ShouldNotDuplicateCarriedSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 2,
+            StartDate = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            EndDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = new DateTime(2026, 4, 1, 0, 0, 0, DateTimeKind.Utc)
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.CreatePackage12Async(
+            user.Id,
+            new CreatePackage12Request
+            {
+                StartDate = new DateTime(2026, 5, 1, 0, 0, 0, DateTimeKind.Utc)
+            },
+            Guid.NewGuid());
+
+        await balanceService.ApplyCarryOverAsync(user.Id);
+
+        var newPackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == response.Id);
+        newPackage.TotalSessions.Should().Be(14);
+        newPackage.RemainingSessions.Should().Be(14);
+        newPackage.CarriedOverSessions.Should().Be(2);
+    }
+
+    [Fact]
     public async Task AddSingleSessionsAsync_WhenActiveBalanceDoesNotExist_ShouldCreateSingleSessionsBalance()
     {
         var services = CreateServiceProvider();
