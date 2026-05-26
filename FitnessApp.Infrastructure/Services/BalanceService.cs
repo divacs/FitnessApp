@@ -2,6 +2,7 @@ using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Memberships.Mappings;
+using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -98,7 +99,14 @@ public class BalanceService : IBalanceService
         Guid adminId,
         CancellationToken cancellationToken = default)
     {
-        throw new BadRequestException("Kreiranje paketa od 12 termina biće implementirano u narednom koraku.");
+        return CreateMonthlyPackageAsync(
+            userId,
+            request.StartDate,
+            request.Notes,
+            adminId,
+            PurchaseType.Package12,
+            totalSessions: 12,
+            cancellationToken);
     }
 
     public Task<UserTrainingBalanceResponse> CreatePackage6Async(
@@ -107,7 +115,14 @@ public class BalanceService : IBalanceService
         Guid adminId,
         CancellationToken cancellationToken = default)
     {
-        throw new BadRequestException("Kreiranje paketa od 6 termina biće implementirano u narednom koraku.");
+        return CreateMonthlyPackageAsync(
+            userId,
+            request.StartDate,
+            request.Notes,
+            adminId,
+            PurchaseType.Package6,
+            totalSessions: 6,
+            cancellationToken);
     }
 
     public Task<UserTrainingBalanceResponse> AddSingleSessionsAsync(
@@ -147,5 +162,63 @@ public class BalanceService : IBalanceService
             _logger.LogWarning("Balance requested for missing user {UserId}.", userId);
             throw new NotFoundException("Korisnik nije pronađen.");
         }
+    }
+
+    private async Task<UserTrainingBalanceResponse> CreateMonthlyPackageAsync(
+        Guid userId,
+        DateTime startDate,
+        string? notes,
+        Guid adminId,
+        PurchaseType purchaseType,
+        int totalSessions,
+        CancellationToken cancellationToken)
+    {
+        await EnsureUserExistsAsync(userId, cancellationToken);
+
+        var hasActiveSamePackage = await _dbContext.UserTrainingBalances
+            .AsNoTracking()
+            .AnyAsync(
+                balance =>
+                    balance.UserId == userId
+                    && balance.PurchaseType == purchaseType
+                    && balance.IsActive
+                    && !balance.IsExpired,
+                cancellationToken);
+
+        if (hasActiveSamePackage)
+        {
+            _logger.LogInformation(
+                "User {UserId} already has an active {PurchaseType} package. Creating another package.",
+                userId,
+                purchaseType);
+        }
+
+        var balance = new UserTrainingBalance
+        {
+            UserId = userId,
+            PurchaseType = purchaseType,
+            TotalSessions = totalSessions,
+            RemainingSessions = totalSessions,
+            StartDate = startDate,
+            EndDate = startDate.AddMonths(1),
+            IsActive = true,
+            IsExpired = false,
+            CreatedByAdminId = adminId,
+            CreatedAt = DateTime.UtcNow,
+            Notes = notes
+        };
+
+        _dbContext.UserTrainingBalances.Add(balance);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Created {PurchaseType} balance {BalanceId} for user {UserId} by admin {AdminId}.",
+            purchaseType,
+            balance.Id,
+            userId,
+            adminId);
+
+        return balance.ToResponse();
     }
 }
