@@ -34,6 +34,10 @@ public interface IBalanceService
         Guid adminId,
         CancellationToken cancellationToken = default);
 
+    Task ConsumeSessionAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<UserTrainingBalanceResponse> UpdateBalanceAsync(
         Guid balanceId,
         UpdateBalanceRequest request,

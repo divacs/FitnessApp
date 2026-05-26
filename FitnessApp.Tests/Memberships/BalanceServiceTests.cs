@@ -348,6 +348,155 @@ public class BalanceServiceTests
         response.MembershipExpiresAt.Should().BeNull();
     }
 
+    [Fact]
+    public async Task ConsumeSessionAsync_WhenActivePackageExists_ShouldConsumeFromPackageFirst()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var packageBalance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 2,
+            StartDate = DateTime.UtcNow.AddDays(-5),
+            EndDate = DateTime.UtcNow.AddDays(20),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-5)
+        };
+        var singleSessionsBalance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 3,
+            RemainingSessions = 3,
+            StartDate = DateTime.UtcNow.AddDays(-2),
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(packageBalance, singleSessionsBalance);
+        await dbContext.SaveChangesAsync();
+
+        await balanceService.ConsumeSessionAsync(user.Id);
+
+        var updatedPackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == packageBalance.Id);
+        var updatedSingleSessions = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == singleSessionsBalance.Id);
+        updatedPackage.RemainingSessions.Should().Be(1);
+        updatedSingleSessions.RemainingSessions.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ConsumeSessionAsync_WhenNoActivePackageExists_ShouldConsumeFromSingleSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package12,
+                TotalSessions = 12,
+                RemainingSessions = 5,
+                StartDate = DateTime.UtcNow.AddMonths(-2),
+                EndDate = DateTime.UtcNow.AddDays(-1),
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow.AddMonths(-2)
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.SingleSessions,
+                TotalSessions = 4,
+                RemainingSessions = 2,
+                StartDate = DateTime.UtcNow.AddDays(-3),
+                EndDate = null,
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = DateTime.UtcNow.AddDays(-3)
+            });
+        await dbContext.SaveChangesAsync();
+
+        await balanceService.ConsumeSessionAsync(user.Id);
+
+        var singleSessionsBalance = await dbContext.UserTrainingBalances
+            .SingleAsync(x => x.PurchaseType == PurchaseType.SingleSessions);
+        singleSessionsBalance.RemainingSessions.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ConsumeSessionAsync_WhenBalanceReachesZero_ShouldKeepBalanceActive()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 1,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow,
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        await balanceService.ConsumeSessionAsync(user.Id);
+
+        var balance = await dbContext.UserTrainingBalances.SingleAsync();
+        balance.RemainingSessions.Should().Be(0);
+        balance.IsActive.Should().BeTrue();
+        balance.IsExpired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ConsumeSessionAsync_WhenNoSessionsAreAvailable_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 2,
+            RemainingSessions = 0,
+            StartDate = DateTime.UtcNow,
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var act = () => balanceService.ConsumeSessionAsync(user.Id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Korisnik nema dostupnih termina.");
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();

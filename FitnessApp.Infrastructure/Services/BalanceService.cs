@@ -142,6 +142,52 @@ public class BalanceService : IBalanceService
         return AddSingleSessionsInternalAsync(userId, request, adminId, cancellationToken);
     }
 
+    public async Task ConsumeSessionAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureUserExistsAsync(userId, cancellationToken);
+
+        var utcNow = DateTime.UtcNow;
+        var balance = await _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0
+                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                && balance.EndDate >= utcNow)
+            .OrderBy(balance => balance.EndDate)
+            .ThenByDescending(balance => balance.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        balance ??= await _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.PurchaseType == PurchaseType.SingleSessions
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0)
+            .OrderBy(balance => balance.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (balance is null)
+        {
+            _logger.LogWarning("Unable to consume session for user {UserId} because no sessions are available.", userId);
+            throw new ConflictException("Korisnik nema dostupnih termina.");
+        }
+
+        balance.RemainingSessions -= 1;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Consumed one session from balance {BalanceId} for user {UserId}. Remaining sessions: {RemainingSessions}.",
+            balance.Id,
+            userId,
+            balance.RemainingSessions);
+    }
+
     public Task<UserTrainingBalanceResponse> UpdateBalanceAsync(
         Guid balanceId,
         UpdateBalanceRequest request,
