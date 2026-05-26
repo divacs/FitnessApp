@@ -1,0 +1,30 @@
+using FitnessApp.Application.Features.Reservations.DTOs;
+using FitnessApp.Domain.Entities;
+
+namespace FitnessApp.Application.Features.Reservations.Mappings;
+
+public static class ReservationMappings
+{
+    public static ReservationResponse ToResponse(this Reservation reservation)
+    {
+        return new ReservationResponse
+        {
+            Id = reservation.Id,
+            UserId = reservation.UserId,
+            TrainingSessionId = reservation.TrainingSessionId,
+            TrainingTitle = reservation.TrainingSession.Title,
+            TrainingStartTime = reservation.TrainingSession.StartTime,
+            TrainingEndTime = reservation.TrainingSession.EndTime,
+            TrainerName = reservation.TrainingSession.TrainerName,
+            Location = reservation.TrainingSession.Location,
+            Status = reservation.Status,
+            ReservedAt = reservation.ReservedAt,
+            CancelledAt = reservation.CancelledAt,
+            CancelledByUser = reservation.CancelledByUser,
+            CancelledByAdmin = reservation.CancelledByAdmin,
+            AttendedAt = reservation.AttendedAt,
+            NoShowAt = reservation.NoShowAt,
+            Notes = reservation.Notes
+        };
+    }
+}
