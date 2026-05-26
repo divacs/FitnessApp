@@ -2,6 +2,7 @@ using FitnessApp.Domain.Entities;
 using FitnessApp.Application.Features.Auth.Interfaces;
 using FitnessApp.Application.Features.Emails.Interfaces;
 using FitnessApp.Application.Features.Memberships.Interfaces;
+using FitnessApp.Application.Features.Payments.Interfaces;
 using FitnessApp.Application.Features.Users.Interfaces;
 using FitnessApp.Infrastructure.Emails;
 using FitnessApp.Infrastructure.Identity;
@@ -54,6 +55,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IBalanceService, BalanceService>();
+        services.AddScoped<IPaymentService, PaymentService>();
 
         return services;
     }
