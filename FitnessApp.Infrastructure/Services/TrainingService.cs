@@ -100,6 +100,11 @@ public class TrainingService : ITrainingService
 
         var training = await GetTrackedTrainingAsync(id, cancellationToken);
 
+        if (training.Reservations.Count != 0 && request.StartTime <= DateTime.UtcNow)
+        {
+            throw new ConflictException("Trening sa rezervacijama ne može biti pomeren u prošlost.");
+        }
+
         training.Title = request.Title.Trim();
         training.Description = request.Description?.Trim() ?? string.Empty;
         training.StartTime = request.StartTime;
@@ -122,6 +127,7 @@ public class TrainingService : ITrainingService
         CancellationToken cancellationToken = default)
     {
         ValidateTrainingId(id);
+        ValidateCancellationReason(cancellationReason);
 
         var training = await GetTrackedTrainingAsync(id, cancellationToken);
 
@@ -131,6 +137,7 @@ public class TrainingService : ITrainingService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        // TODO: Send training cancellation notifications to reserved users.
         _logger.LogInformation("Cancelled training session {TrainingSessionId}.", training.Id);
 
         return training.ToResponse();
@@ -143,11 +150,17 @@ public class TrainingService : ITrainingService
         ValidateTrainingId(id);
 
         var training = await _dbContext.TrainingSessions
+            .Include(training => training.Reservations)
             .FirstOrDefaultAsync(training => training.Id == id, cancellationToken);
 
         if (training is null)
         {
             throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        if (training.Reservations.Count != 0)
+        {
+            throw new ConflictException("Trening sa rezervacijama ne može biti obrisan.");
         }
 
         _dbContext.TrainingSessions.Remove(training);
@@ -208,6 +221,14 @@ public class TrainingService : ITrainingService
         if (capacity <= 0)
         {
             throw new BadRequestException("Kapacitet mora biti veći od 0.");
+        }
+    }
+
+    private static void ValidateCancellationReason(string? cancellationReason)
+    {
+        if (string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            throw new BadRequestException("Razlog otkazivanja je obavezan.");
         }
     }
 }

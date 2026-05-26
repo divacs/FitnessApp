@@ -158,6 +158,22 @@ public class TrainingServiceTests
     }
 
     [Fact]
+    public async Task CancelTrainingAsync_WhenReasonIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Trening");
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => trainingService.CancelTrainingAsync(training.Id);
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Razlog otkazivanja je obavezan.");
+    }
+
+    [Fact]
     public async Task DeleteTrainingAsync_ShouldRemoveTraining()
     {
         var services = CreateServiceProvider();
@@ -171,6 +187,29 @@ public class TrainingServiceTests
 
         var trainingExists = await dbContext.TrainingSessions.AnyAsync(x => x.Id == training.Id);
         trainingExists.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteTrainingAsync_WhenTrainingHasReservations_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Trening");
+        training.Reservations.Add(new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            TrainingSessionId = training.Id,
+            Status = ReservationStatus.Reserved
+        });
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => trainingService.DeleteTrainingAsync(training.Id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Trening sa rezervacijama ne može biti obrisan.");
     }
 
     [Fact]
