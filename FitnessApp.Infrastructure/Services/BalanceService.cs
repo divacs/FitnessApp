@@ -12,6 +12,8 @@ namespace FitnessApp.Infrastructure.Services;
 
 public class BalanceService : IBalanceService
 {
+    private const int MaxCarriedOverSessions = 2;
+
     private readonly AppDbContext _dbContext;
     private readonly ILogger<BalanceService> _logger;
 
@@ -27,31 +29,19 @@ public class BalanceService : IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        ValidateUserId(userId);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var utcNow = DateTime.UtcNow;
 
-        var activePackage = await _dbContext.UserTrainingBalances
+        var activePackage = await GetAvailableMonthlyPackagesQuery(userId, utcNow)
             .AsNoTracking()
-            .Where(balance =>
-                balance.UserId == userId
-                && balance.IsActive
-                && !balance.IsExpired
-                && balance.RemainingSessions > 0
-                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
-                && balance.EndDate >= utcNow)
             .OrderBy(balance => balance.EndDate)
             .ThenByDescending(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        var singleSessionsRemaining = await _dbContext.UserTrainingBalances
+        var singleSessionsRemaining = await GetAvailableSingleSessionsQuery(userId)
             .AsNoTracking()
-            .Where(balance =>
-                balance.UserId == userId
-                && balance.PurchaseType == PurchaseType.SingleSessions
-                && balance.IsActive
-                && !balance.IsExpired
-                && balance.RemainingSessions > 0)
             .SumAsync(balance => balance.RemainingSessions, cancellationToken);
 
         var activePackageRemainingSessions = activePackage?.RemainingSessions ?? 0;
@@ -71,6 +61,7 @@ public class BalanceService : IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        ValidateUserId(userId);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var balances = await _dbContext.UserTrainingBalances
@@ -88,6 +79,7 @@ public class BalanceService : IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        ValidateUserId(userId);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var balances = await _dbContext.UserTrainingBalances
@@ -146,6 +138,7 @@ public class BalanceService : IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        ValidateUserId(userId);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var package12Balances = await _dbContext.UserTrainingBalances
@@ -185,7 +178,7 @@ public class BalanceService : IBalanceService
             return;
         }
 
-        var carriedOverSessions = Math.Min(previousPackage.RemainingSessions, 2);
+        var carriedOverSessions = Math.Min(previousPackage.RemainingSessions, MaxCarriedOverSessions);
 
         newPackage.TotalSessions += carriedOverSessions;
         newPackage.RemainingSessions += carriedOverSessions;
@@ -208,28 +201,16 @@ public class BalanceService : IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default)
     {
+        ValidateUserId(userId);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var utcNow = DateTime.UtcNow;
-        var balance = await _dbContext.UserTrainingBalances
-            .Where(balance =>
-                balance.UserId == userId
-                && balance.IsActive
-                && !balance.IsExpired
-                && balance.RemainingSessions > 0
-                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
-                && balance.EndDate >= utcNow)
+        var balance = await GetAvailableMonthlyPackagesQuery(userId, utcNow)
             .OrderBy(balance => balance.EndDate)
             .ThenByDescending(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        balance ??= await _dbContext.UserTrainingBalances
-            .Where(balance =>
-                balance.UserId == userId
-                && balance.PurchaseType == PurchaseType.SingleSessions
-                && balance.IsActive
-                && !balance.IsExpired
-                && balance.RemainingSessions > 0)
+        balance ??= await GetAvailableSingleSessionsQuery(userId)
             .OrderBy(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -280,6 +261,47 @@ public class BalanceService : IBalanceService
         }
     }
 
+    private static void ValidateUserId(Guid userId)
+    {
+        if (userId == Guid.Empty)
+        {
+            throw new BadRequestException("Korisnik je obavezan.");
+        }
+    }
+
+    private static void ValidateStartDate(DateTime startDate)
+    {
+        if (startDate == default)
+        {
+            throw new BadRequestException("Datum početka je obavezan.");
+        }
+    }
+
+    private IQueryable<UserTrainingBalance> GetAvailableMonthlyPackagesQuery(
+        Guid userId,
+        DateTime utcNow)
+    {
+        return _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0
+                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                && balance.EndDate >= utcNow);
+    }
+
+    private IQueryable<UserTrainingBalance> GetAvailableSingleSessionsQuery(Guid userId)
+    {
+        return _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.PurchaseType == PurchaseType.SingleSessions
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0);
+    }
+
     private async Task<UserTrainingBalanceResponse> CreateMonthlyPackageAsync(
         Guid userId,
         DateTime startDate,
@@ -289,6 +311,8 @@ public class BalanceService : IBalanceService
         int totalSessions,
         CancellationToken cancellationToken)
     {
+        ValidateUserId(userId);
+        ValidateStartDate(startDate);
         await EnsureUserExistsAsync(userId, cancellationToken);
 
         var hasActiveSamePackage = await _dbContext.UserTrainingBalances
@@ -349,6 +373,8 @@ public class BalanceService : IBalanceService
         Guid adminId,
         CancellationToken cancellationToken)
     {
+        ValidateUserId(userId);
+
         if (request.NumberOfSessions <= 0)
         {
             throw new BadRequestException("Broj termina mora biti veći od 0.");

@@ -76,6 +76,40 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task CreatePackage12Async_WhenStartDateIsMissing_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => balanceService.CreatePackage12Async(
+            user.Id,
+            new CreatePackage12Request
+            {
+                StartDate = default
+            },
+            Guid.NewGuid());
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Datum početka je obavezan.");
+    }
+
+    [Fact]
+    public async Task GetCurrentBalanceAsync_WhenUserIdIsEmpty_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+
+        var act = () => balanceService.GetCurrentBalanceAsync(Guid.Empty);
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Korisnik je obavezan.");
+    }
+
+    [Fact]
     public async Task CreatePackage12Async_WhenActiveSamePackageExists_ShouldStillCreateNewPackage()
     {
         var services = CreateServiceProvider();
