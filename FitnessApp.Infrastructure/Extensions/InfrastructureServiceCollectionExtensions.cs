@@ -73,6 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddScoped<IIdentitySeeder, IdentitySeeder>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IAdminDashboardService, AdminDashboardService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
