@@ -1,12 +1,11 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
-using FitnessApp.Application.Settings;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace FitnessApp.Infrastructure.Services;
 
@@ -14,25 +13,26 @@ public class AutoAttendanceService : IAutoAttendanceService
 {
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
-    private readonly AppSettings _appSettings;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<AutoAttendanceService> _logger;
 
     public AutoAttendanceService(
         AppDbContext dbContext,
         IBalanceService balanceService,
-        IOptions<AppSettings> appSettings,
+        ISettingsService settingsService,
         ILogger<AutoAttendanceService> logger)
     {
         _dbContext = dbContext;
         _balanceService = balanceService;
-        _appSettings = appSettings.Value;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
     public async Task AutoMarkAttendanceAsync(CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
-        var eligibleTrainingEndTime = utcNow.AddMinutes(-_appSettings.AutoMarkAttendanceDelayMinutes);
+        var autoMarkDelayMinutes = await _settingsService.GetAutoMarkAttendanceDelayMinutesAsync(cancellationToken);
+        var eligibleTrainingEndTime = utcNow.AddMinutes(-autoMarkDelayMinutes);
 
         var reservations = await _dbContext.Reservations
             .Include(reservation => reservation.TrainingSession)

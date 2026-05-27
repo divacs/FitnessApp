@@ -5,6 +5,7 @@ using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Application.Features.Payments.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Features.Terms.Interfaces;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Application.Features.Users.Interfaces;
@@ -75,6 +76,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<INotificationService, NotificationService>();
+        services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IBalanceService, BalanceService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IReservationService, ReservationService>();

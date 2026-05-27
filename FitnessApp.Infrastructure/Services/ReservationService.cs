@@ -4,13 +4,12 @@ using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Reservations.Mappings;
-using FitnessApp.Application.Settings;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace FitnessApp.Infrastructure.Services;
 
@@ -21,18 +20,18 @@ public class ReservationService : IReservationService
 
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
-    private readonly AppSettings _appSettings;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<ReservationService> _logger;
 
     public ReservationService(
         AppDbContext dbContext,
         IBalanceService balanceService,
-        IOptions<AppSettings> appSettings,
+        ISettingsService settingsService,
         ILogger<ReservationService> logger)
     {
         _dbContext = dbContext;
         _balanceService = balanceService;
-        _appSettings = appSettings.Value;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -236,8 +235,9 @@ public class ReservationService : IReservationService
             throw new ConflictException("Trening je već počeo ili je završen.");
         }
 
+        var cancellationDeadlineHours = await _settingsService.GetCancellationDeadlineHoursAsync(cancellationToken);
         var cancellationDeadline = reservation.TrainingSession.StartTime
-            .AddHours(-_appSettings.CancellationDeadlineHours);
+            .AddHours(-cancellationDeadlineHours);
 
         if (utcNow > cancellationDeadline)
         {

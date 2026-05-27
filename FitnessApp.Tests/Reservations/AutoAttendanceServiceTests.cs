@@ -1,5 +1,6 @@
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Settings;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
@@ -110,6 +111,7 @@ public class AutoAttendanceServiceTests
             options.ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         });
         services.AddScoped<IBalanceService, BalanceService>();
+        services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IAutoAttendanceService, AutoAttendanceService>();
 
         return services.BuildServiceProvider();
