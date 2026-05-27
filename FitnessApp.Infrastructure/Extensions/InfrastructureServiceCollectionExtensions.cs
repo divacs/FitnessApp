@@ -2,6 +2,7 @@ using FitnessApp.Domain.Entities;
 using FitnessApp.Application.Features.Auth.Interfaces;
 using FitnessApp.Application.Features.Emails.Interfaces;
 using FitnessApp.Application.Features.Memberships.Interfaces;
+using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Application.Features.Payments.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Trainings.Interfaces;
@@ -72,6 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IBalanceService, BalanceService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IReservationService, ReservationService>();
@@ -80,6 +82,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<AutoMarkAttendanceJob>();
         services.AddScoped<TrainingReminderJob>();
         services.AddScoped<MembershipExpirationReminderJob>();
+        services.AddScoped<NotificationEmailJob>();
 
         return services;
     }
