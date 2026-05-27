@@ -2,6 +2,8 @@ using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Notifications.DTOs;
 using FitnessApp.Application.Features.Notifications.Interfaces;
+using FitnessApp.Application.Features.Settings.DTOs;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Domain.Entities;
@@ -145,6 +147,45 @@ public class TrainingServiceTests
         storedTraining.Title.Should().Be("Jutarnji trening");
         storedTraining.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(10));
         storedTraining.UpdatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(10));
+    }
+
+    [Fact]
+    public async Task CreateTrainingAsync_WhenCapacityIsZero_ShouldUseDefaultTrainingCapacityFromSettings()
+    {
+        var services = CreateServiceProvider(defaultTrainingCapacity: 14);
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var startTime = DateTime.UtcNow.AddDays(1);
+
+        var response = await trainingService.CreateTrainingAsync(
+            new CreateTrainingSessionRequest
+            {
+                Title = "Trening",
+                StartTime = startTime,
+                EndTime = startTime.AddHours(1),
+                Capacity = 0
+            });
+
+        response.Capacity.Should().Be(14);
+    }
+
+    [Fact]
+    public async Task CreateTrainingAsync_WhenCapacityIsNegative_ShouldThrowBadRequest()
+    {
+        var services = CreateServiceProvider();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var startTime = DateTime.UtcNow.AddDays(1);
+
+        var act = () => trainingService.CreateTrainingAsync(
+            new CreateTrainingSessionRequest
+            {
+                Title = "Trening",
+                StartTime = startTime,
+                EndTime = startTime.AddHours(1),
+                Capacity = -1
+            });
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Kapacitet ne može biti negativan.");
     }
 
     [Fact]
@@ -331,7 +372,7 @@ public class TrainingServiceTests
             .WithMessage("Trening nije pronađen.");
     }
 
-    private static ServiceProvider CreateServiceProvider()
+    private static ServiceProvider CreateServiceProvider(int defaultTrainingCapacity = 10)
     {
         var services = new ServiceCollection();
 
@@ -342,6 +383,7 @@ public class TrainingServiceTests
         });
         services.AddScoped<FakeNotificationService>();
         services.AddScoped<INotificationService>(provider => provider.GetRequiredService<FakeNotificationService>());
+        services.AddSingleton<ISettingsService>(new FakeSettingsService(defaultTrainingCapacity));
         services.AddScoped<ITrainingService, TrainingService>();
 
         return services.BuildServiceProvider();
@@ -440,6 +482,49 @@ public class TrainingServiceTests
         {
             UpdatedTrainingIds.Add(trainingSessionId);
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakeSettingsService : ISettingsService
+    {
+        private readonly int _defaultTrainingCapacity;
+
+        public FakeSettingsService(int defaultTrainingCapacity)
+        {
+            _defaultTrainingCapacity = defaultTrainingCapacity;
+        }
+
+        public Task<SettingsResponse> GetSettingsAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new SettingsResponse
+            {
+                CancellationDeadlineHours = 12,
+                ContactPhone = "+381600000000",
+                DefaultTrainingCapacity = _defaultTrainingCapacity,
+                AutoMarkAttendanceDelayMinutes = 60
+            });
+        }
+
+        public Task<SettingsResponse> UpdateSettingsAsync(
+            UpdateSettingsRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new SettingsResponse());
+        }
+
+        public Task<int> GetCancellationDeadlineHoursAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(12);
+        }
+
+        public Task<int> GetDefaultTrainingCapacityAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(_defaultTrainingCapacity);
+        }
+
+        public Task<int> GetAutoMarkAttendanceDelayMinutesAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(60);
         }
     }
 }

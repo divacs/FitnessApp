@@ -1,5 +1,6 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Notifications.Interfaces;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Application.Features.Trainings.Mappings;
@@ -15,15 +16,18 @@ public class TrainingService : ITrainingService
 {
     private readonly AppDbContext _dbContext;
     private readonly INotificationService _notificationService;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<TrainingService> _logger;
 
     public TrainingService(
         AppDbContext dbContext,
         INotificationService notificationService,
+        ISettingsService settingsService,
         ILogger<TrainingService> logger)
     {
         _dbContext = dbContext;
         _notificationService = notificationService;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -88,7 +92,13 @@ public class TrainingService : ITrainingService
         CancellationToken cancellationToken = default)
     {
         ValidateTrainingTimes(request.StartTime, request.EndTime);
-        ValidateCapacity(request.Capacity);
+        ValidateCreateCapacity(request.Capacity);
+
+        var capacity = request.Capacity > 0
+            ? request.Capacity
+            : await _settingsService.GetDefaultTrainingCapacityAsync(cancellationToken);
+
+        ValidateCapacity(capacity);
 
         var training = new TrainingSession
         {
@@ -96,7 +106,7 @@ public class TrainingService : ITrainingService
             Description = request.Description?.Trim() ?? string.Empty,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
-            Capacity = request.Capacity,
+            Capacity = capacity,
             TrainerName = string.IsNullOrWhiteSpace(request.TrainerName)
                 ? "Sara"
                 : request.TrainerName.Trim(),
@@ -109,7 +119,10 @@ public class TrainingService : ITrainingService
         _dbContext.TrainingSessions.Add(training);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Created training session {TrainingSessionId}.", training.Id);
+        _logger.LogInformation(
+            "Created training session {TrainingSessionId} with capacity {Capacity}.",
+            training.Id,
+            training.Capacity);
 
         return training.ToResponse();
     }
@@ -255,6 +268,14 @@ public class TrainingService : ITrainingService
         if (capacity <= 0)
         {
             throw new BadRequestException("Kapacitet mora biti veći od 0.");
+        }
+    }
+
+    private static void ValidateCreateCapacity(int capacity)
+    {
+        if (capacity < 0)
+        {
+            throw new BadRequestException("Kapacitet ne može biti negativan.");
         }
     }
 

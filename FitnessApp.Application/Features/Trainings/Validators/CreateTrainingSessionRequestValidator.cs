@@ -24,7 +24,7 @@ public class CreateTrainingSessionRequestValidator : AbstractValidator<CreateTra
             .WithMessage("Vreme završetka mora biti nakon vremena početka.");
 
         RuleFor(x => x.Capacity)
-            .GreaterThan(0)
-            .WithMessage("Kapacitet mora biti veći od 0.");
+            .GreaterThanOrEqualTo(0)
+            .WithMessage("Kapacitet ne može biti negativan.");
     }
 }

@@ -12,5 +12,7 @@ public interface ISettingsService
 
     Task<int> GetCancellationDeadlineHoursAsync(CancellationToken cancellationToken = default);
 
+    Task<int> GetDefaultTrainingCapacityAsync(CancellationToken cancellationToken = default);
+
     Task<int> GetAutoMarkAttendanceDelayMinutesAsync(CancellationToken cancellationToken = default);
 }

@@ -92,6 +92,13 @@ public class SettingsService : ISettingsService
         return settings.CancellationDeadlineHours;
     }
 
+    public async Task<int> GetDefaultTrainingCapacityAsync(CancellationToken cancellationToken = default)
+    {
+        var settings = await GetSettingsAsync(cancellationToken);
+
+        return settings.DefaultTrainingCapacity;
+    }
+
     public async Task<int> GetAutoMarkAttendanceDelayMinutesAsync(CancellationToken cancellationToken = default)
     {
         var settings = await GetSettingsAsync(cancellationToken);
