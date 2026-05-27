@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Reservations.Mappings;
@@ -15,6 +16,7 @@ namespace FitnessApp.Infrastructure.Services;
 public class ReservationService : IReservationService
 {
     private const int MaxUpcomingReservations = 2;
+    private const int MaxPageSize = 100;
 
     private readonly AppDbContext _dbContext;
     private readonly AppSettings _appSettings;
@@ -151,6 +153,7 @@ public class ReservationService : IReservationService
 
         var reservations = await _dbContext.Reservations
             .AsNoTracking()
+            .Include(reservation => reservation.User)
             .Include(reservation => reservation.TrainingSession)
             .Where(reservation => reservation.UserId == userId)
             .OrderByDescending(reservation => reservation.ReservedAt)
@@ -172,6 +175,7 @@ public class ReservationService : IReservationService
         var utcNow = DateTime.UtcNow;
         var reservations = await _dbContext.Reservations
             .AsNoTracking()
+            .Include(reservation => reservation.User)
             .Include(reservation => reservation.TrainingSession)
             .Where(reservation =>
                 reservation.UserId == userId
@@ -183,6 +187,49 @@ public class ReservationService : IReservationService
         return reservations
             .Select(reservation => reservation.ToResponse())
             .ToArray();
+    }
+
+    public async Task<PaginatedResponse<ReservationResponse>> GetReservationsAsync(
+        int page,
+        int pageSize,
+        DateTime? date = null,
+        ReservationStatus? status = null,
+        Guid? userId = null,
+        Guid? trainingSessionId = null,
+        string? sortBy = null,
+        bool sortDescending = false,
+        CancellationToken cancellationToken = default)
+    {
+        var query = _dbContext.Reservations
+            .AsNoTracking()
+            .Include(reservation => reservation.User)
+            .Include(reservation => reservation.TrainingSession)
+            .AsQueryable();
+
+        query = ApplyFilters(query, date, status, userId, trainingSessionId);
+        query = ApplySorting(query, sortBy, sortDescending);
+
+        return await GetPaginatedReservationsAsync(query, page, pageSize, cancellationToken);
+    }
+
+    public async Task<ReservationResponse> GetReservationByIdAsync(
+        Guid reservationId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateReservationId(reservationId);
+
+        var reservation = await _dbContext.Reservations
+            .AsNoTracking()
+            .Include(reservation => reservation.User)
+            .Include(reservation => reservation.TrainingSession)
+            .FirstOrDefaultAsync(reservation => reservation.Id == reservationId, cancellationToken);
+
+        if (reservation is null)
+        {
+            throw new NotFoundException("Rezervacija nije pronađena.");
+        }
+
+        return reservation.ToResponse();
     }
 
     private async Task EnsureReservationLimitsAsync(
@@ -219,6 +266,87 @@ public class ReservationService : IReservationService
         {
             throw new ConflictException("Možete imati najviše 2 naredne rezervacije.");
         }
+    }
+
+    private static IQueryable<Reservation> ApplyFilters(
+        IQueryable<Reservation> query,
+        DateTime? date,
+        ReservationStatus? status,
+        Guid? userId,
+        Guid? trainingSessionId)
+    {
+        if (date.HasValue)
+        {
+            var dayStart = date.Value.Date;
+            var dayEnd = dayStart.AddDays(1);
+
+            query = query.Where(reservation =>
+                reservation.TrainingSession.StartTime >= dayStart
+                && reservation.TrainingSession.StartTime < dayEnd);
+        }
+
+        if (status.HasValue)
+        {
+            query = query.Where(reservation => reservation.Status == status.Value);
+        }
+
+        if (userId.HasValue)
+        {
+            query = query.Where(reservation => reservation.UserId == userId.Value);
+        }
+
+        if (trainingSessionId.HasValue)
+        {
+            query = query.Where(reservation => reservation.TrainingSessionId == trainingSessionId.Value);
+        }
+
+        return query;
+    }
+
+    private static IQueryable<Reservation> ApplySorting(
+        IQueryable<Reservation> query,
+        string? sortBy,
+        bool sortDescending)
+    {
+        return sortBy?.Trim().ToLowerInvariant() switch
+        {
+            "status" => sortDescending
+                ? query.OrderByDescending(reservation => reservation.Status)
+                    .ThenBy(reservation => reservation.TrainingSession.StartTime)
+                : query.OrderBy(reservation => reservation.Status)
+                    .ThenBy(reservation => reservation.TrainingSession.StartTime),
+            _ => sortDescending
+                ? query.OrderByDescending(reservation => reservation.TrainingSession.StartTime)
+                    .ThenBy(reservation => reservation.Status)
+                : query.OrderBy(reservation => reservation.TrainingSession.StartTime)
+                    .ThenBy(reservation => reservation.Status)
+        };
+    }
+
+    private static async Task<PaginatedResponse<ReservationResponse>> GetPaginatedReservationsAsync(
+        IQueryable<Reservation> query,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        var normalizedPage = Math.Max(page, 1);
+        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var reservations = await query
+            .Skip((normalizedPage - 1) * normalizedPageSize)
+            .Take(normalizedPageSize)
+            .ToListAsync(cancellationToken);
+
+        var items = reservations
+            .Select(reservation => reservation.ToResponse())
+            .ToArray();
+
+        return new PaginatedResponse<ReservationResponse>(
+            items,
+            normalizedPage,
+            normalizedPageSize,
+            totalCount);
     }
 
     private async Task EnsureUserExistsAsync(

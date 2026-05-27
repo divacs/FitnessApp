@@ -341,6 +341,97 @@ public class ReservationServiceTests
         response.Single().TrainingSessionId.Should().Be(futureTraining.Id);
     }
 
+    [Fact]
+    public async Task GetReservationsAsync_WhenFiltersAreApplied_ShouldReturnMatchingReservations()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var otherUser = CreateUser(UserStatus.Verified);
+        var requestedDate = DateTime.UtcNow.AddDays(2).Date;
+        var training = CreateTraining(requestedDate.AddHours(10), capacity: 10);
+        var otherTraining = CreateTraining(requestedDate.AddDays(1).AddHours(10), capacity: 10);
+        var matchingReservation = CreateReservation(user.Id, training.Id);
+        var otherReservation = CreateReservation(otherUser.Id, otherTraining.Id);
+        otherReservation.Status = ReservationStatus.Cancelled;
+        dbContext.Users.AddRange(user, otherUser);
+        dbContext.TrainingSessions.AddRange(training, otherTraining);
+        dbContext.Reservations.AddRange(matchingReservation, otherReservation);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.GetReservationsAsync(
+            page: 1,
+            pageSize: 20,
+            date: requestedDate,
+            status: ReservationStatus.Reserved,
+            userId: user.Id,
+            trainingSessionId: training.Id);
+
+        response.TotalCount.Should().Be(1);
+        response.Items.Should().ContainSingle();
+        response.Items.Single().Id.Should().Be(matchingReservation.Id);
+        response.Items.Single().UserFullName.Should().Be(user.FullName);
+        response.Items.Single().UserEmail.Should().Be(user.Email);
+    }
+
+    [Fact]
+    public async Task GetReservationsAsync_WhenSortingByStatusDescending_ShouldSortByStatus()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training1 = CreateTraining(DateTime.UtcNow.AddDays(1), capacity: 10);
+        var training2 = CreateTraining(DateTime.UtcNow.AddDays(2), capacity: 10);
+        var reservedReservation = CreateReservation(user.Id, training1.Id);
+        var noShowReservation = CreateReservation(user.Id, training2.Id);
+        noShowReservation.Status = ReservationStatus.NoShow;
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.AddRange(training1, training2);
+        dbContext.Reservations.AddRange(reservedReservation, noShowReservation);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.GetReservationsAsync(
+            page: 1,
+            pageSize: 20,
+            sortBy: "status",
+            sortDescending: true);
+
+        response.Items.Select(x => x.Status)
+            .Should()
+            .Equal(ReservationStatus.NoShow, ReservationStatus.Reserved);
+    }
+
+    [Fact]
+    public async Task GetReservationByIdAsync_ShouldReturnUserTrainingTimestampsAndAutoMarkedInfo()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        reservation.AutoMarkedAttended = true;
+        reservation.AutoMarkedAt = DateTime.UtcNow;
+        reservation.ReminderSentAt = DateTime.UtcNow.AddHours(-1);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.GetReservationByIdAsync(reservation.Id);
+
+        response.Id.Should().Be(reservation.Id);
+        response.UserFullName.Should().Be(user.FullName);
+        response.UserEmail.Should().Be(user.Email);
+        response.TrainingTitle.Should().Be(training.Title);
+        response.ReservedAt.Should().Be(reservation.ReservedAt);
+        response.AutoMarkedAttended.Should().BeTrue();
+        response.AutoMarkedAt.Should().Be(reservation.AutoMarkedAt);
+        response.ReminderSentAt.Should().Be(reservation.ReminderSentAt);
+    }
+
     private static ServiceProvider CreateServiceProvider(int cancellationDeadlineHours = 12)
     {
         var services = new ServiceCollection();

@@ -11,6 +11,8 @@ public static class ReservationMappings
         {
             Id = reservation.Id,
             UserId = reservation.UserId,
+            UserFullName = reservation.User is null ? string.Empty : reservation.User.FullName,
+            UserEmail = reservation.User?.Email ?? string.Empty,
             TrainingSessionId = reservation.TrainingSessionId,
             TrainingTitle = reservation.TrainingSession.Title,
             TrainingStartTime = reservation.TrainingSession.StartTime,
@@ -24,6 +26,9 @@ public static class ReservationMappings
             CancelledByAdmin = reservation.CancelledByAdmin,
             AttendedAt = reservation.AttendedAt,
             NoShowAt = reservation.NoShowAt,
+            ReminderSentAt = reservation.ReminderSentAt,
+            AutoMarkedAttended = reservation.AutoMarkedAttended,
+            AutoMarkedAt = reservation.AutoMarkedAt,
             Notes = reservation.Notes
         };
     }

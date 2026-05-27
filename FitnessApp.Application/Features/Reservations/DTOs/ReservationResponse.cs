@@ -8,6 +8,10 @@ public class ReservationResponse
 
     public Guid UserId { get; init; }
 
+    public string UserFullName { get; init; } = string.Empty;
+
+    public string UserEmail { get; init; } = string.Empty;
+
     public Guid TrainingSessionId { get; init; }
 
     public string TrainingTitle { get; init; } = string.Empty;
@@ -33,6 +37,12 @@ public class ReservationResponse
     public DateTime? AttendedAt { get; init; }
 
     public DateTime? NoShowAt { get; init; }
+
+    public DateTime? ReminderSentAt { get; init; }
+
+    public bool AutoMarkedAttended { get; init; }
+
+    public DateTime? AutoMarkedAt { get; init; }
 
     public string? Notes { get; init; }
 }
