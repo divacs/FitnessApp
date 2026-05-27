@@ -1,8 +1,10 @@
+using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Auth.Validators;
 using FitnessApp.Application.Settings;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -18,7 +20,25 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         services.AddApplicationSettings(configuration);
-        services.AddControllers();
+        services.AddControllers()
+            .ConfigureApiBehaviorOptions(options =>
+            {
+                options.InvalidModelStateResponseFactory = context =>
+                {
+                    var errors = context.ModelState
+                        .Values
+                        .SelectMany(value => value.Errors)
+                        .Select(error => error.ErrorMessage)
+                        .Where(error => !string.IsNullOrWhiteSpace(error))
+                        .ToArray();
+
+                    return new BadRequestObjectResult(new ErrorResponse
+                    {
+                        Message = "Validacija nije uspela.",
+                        Errors = errors
+                    });
+                };
+            });
         services.AddFluentValidationAutoValidation();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddAuthorizationPolicies();
