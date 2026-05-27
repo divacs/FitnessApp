@@ -23,6 +23,8 @@ public class Payment
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public DateTime? UpdatedAt { get; set; }
+
     public Guid? CreatedByAdminId { get; set; }
 
     public ApplicationUser User { get; set; } = null!;

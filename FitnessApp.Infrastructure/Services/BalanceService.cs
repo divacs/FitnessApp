@@ -183,9 +183,11 @@ public class BalanceService : IBalanceService
         newPackage.TotalSessions += carriedOverSessions;
         newPackage.RemainingSessions += carriedOverSessions;
         newPackage.CarriedOverSessions = carriedOverSessions;
+        newPackage.UpdatedAt = DateTime.UtcNow;
 
         previousPackage.IsExpired = true;
         previousPackage.IsActive = false;
+        previousPackage.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -221,6 +223,7 @@ public class BalanceService : IBalanceService
         }
 
         balance.RemainingSessions -= 1;
+        balance.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -395,6 +398,7 @@ public class BalanceService : IBalanceService
         {
             activeSingleSessionsBalance.TotalSessions += request.NumberOfSessions;
             activeSingleSessionsBalance.RemainingSessions += request.NumberOfSessions;
+            activeSingleSessionsBalance.UpdatedAt = DateTime.UtcNow;
 
             if (!string.IsNullOrWhiteSpace(request.Notes))
             {

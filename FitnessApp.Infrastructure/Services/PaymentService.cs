@@ -89,6 +89,7 @@ public class PaymentService : IPaymentService
         payment.Amount = request.Amount;
         payment.PaymentDate = request.PaymentDate;
         payment.Note = request.Note;
+        payment.UpdatedAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
