@@ -1,6 +1,7 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
+using FitnessApp.Application.Settings;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
@@ -8,6 +9,7 @@ using FitnessApp.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace FitnessApp.Tests.Reservations;
 
@@ -227,6 +229,88 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task CancelReservationAsync_WhenCancellationDeadlineHasPassed_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider(cancellationDeadlineHours: 12);
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(6), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.CancelReservationAsync(reservation.Id, user.Id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Rok za otkazivanje rezervacije je prošao.");
+    }
+
+    [Fact]
+    public async Task CancelReservationAsync_WhenTrainingHasStarted_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(-1), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.CancelReservationAsync(reservation.Id, user.Id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Trening je već počeo ili je završen.");
+    }
+
+    [Fact]
+    public async Task CancelReservationAsync_WhenReservationBelongsToAnotherUser_ShouldThrowNotFound()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var otherUser = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), capacity: 10);
+        var reservation = CreateReservation(otherUser.Id, training.Id);
+        dbContext.Users.AddRange(user, otherUser);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.CancelReservationAsync(reservation.Id, user.Id);
+
+        await act.Should().ThrowAsync<NotFoundException>()
+            .WithMessage("Rezervacija nije pronađena.");
+    }
+
+    [Fact]
+    public async Task CancelReservationAsync_WhenReservationIsNotReserved_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        reservation.Status = ReservationStatus.Cancelled;
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.CancelReservationAsync(reservation.Id, user.Id);
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Rezervacija nije aktivna.");
+    }
+
+    [Fact]
     public async Task GetUpcomingReservationsAsync_ShouldReturnOnlyFutureReservedReservations()
     {
         var services = CreateServiceProvider();
@@ -257,11 +341,18 @@ public class ReservationServiceTests
         response.Single().TrainingSessionId.Should().Be(futureTraining.Id);
     }
 
-    private static ServiceProvider CreateServiceProvider()
+    private static ServiceProvider CreateServiceProvider(int cancellationDeadlineHours = 12)
     {
         var services = new ServiceCollection();
 
         services.AddLogging();
+        services.AddSingleton(Options.Create(new AppSettings
+        {
+            FrontendUrl = "http://localhost:5173",
+            CancellationDeadlineHours = cancellationDeadlineHours,
+            DefaultTrainingCapacity = 10,
+            AutoMarkAttendanceDelayMinutes = 60
+        }));
         services.AddDbContext<AppDbContext>(options =>
         {
             options.UseInMemoryDatabase(Guid.NewGuid().ToString());

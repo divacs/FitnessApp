@@ -2,11 +2,13 @@ using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Reservations.Mappings;
+using FitnessApp.Application.Settings;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace FitnessApp.Infrastructure.Services;
 
@@ -15,13 +17,16 @@ public class ReservationService : IReservationService
     private const int MaxUpcomingReservations = 2;
 
     private readonly AppDbContext _dbContext;
+    private readonly AppSettings _appSettings;
     private readonly ILogger<ReservationService> _logger;
 
     public ReservationService(
         AppDbContext dbContext,
+        IOptions<AppSettings> appSettings,
         ILogger<ReservationService> logger)
     {
         _dbContext = dbContext;
+        _appSettings = appSettings.Value;
         _logger = logger;
     }
 
@@ -106,8 +111,23 @@ public class ReservationService : IReservationService
             throw new ConflictException("Rezervacija nije aktivna.");
         }
 
+        var utcNow = DateTime.UtcNow;
+
+        if (reservation.TrainingSession.StartTime <= utcNow)
+        {
+            throw new ConflictException("Trening je već počeo ili je završen.");
+        }
+
+        var cancellationDeadline = reservation.TrainingSession.StartTime
+            .AddHours(-_appSettings.CancellationDeadlineHours);
+
+        if (utcNow > cancellationDeadline)
+        {
+            throw new ConflictException("Rok za otkazivanje rezervacije je prošao.");
+        }
+
         reservation.Status = ReservationStatus.Cancelled;
-        reservation.CancelledAt = DateTime.UtcNow;
+        reservation.CancelledAt = utcNow;
         reservation.CancelledByUser = true;
         reservation.CancelledByAdmin = false;
 
