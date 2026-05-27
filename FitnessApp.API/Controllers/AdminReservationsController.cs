@@ -1,6 +1,7 @@
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
+using FitnessApp.API.Extensions;
 using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
@@ -54,5 +55,16 @@ public class AdminReservationsController : ControllerBase
         var reservation = await _reservationService.GetReservationByIdAsync(id, cancellationToken);
 
         return Ok(ApiResponse<ReservationResponse>.Success(reservation));
+    }
+
+    [HttpPost("{id:guid}/attended")]
+    public async Task<ActionResult<ApiResponse<ReservationResponse>>> MarkAsAttended(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        var reservation = await _reservationService.MarkAsAttendedAsync(id, adminId, cancellationToken);
+
+        return Ok(ApiResponse<ReservationResponse>.Success(reservation, "Rezervacija je označena kao prisutna."));
     }
 }

@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Settings;
@@ -8,6 +9,7 @@ using FitnessApp.Infrastructure.Persistence;
 using FitnessApp.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
@@ -432,6 +434,83 @@ public class ReservationServiceTests
         response.ReminderSentAt.Should().Be(reservation.ReminderSentAt);
     }
 
+    [Fact]
+    public async Task MarkAsAttendedAsync_WhenUserHasAvailableSession_ShouldConsumeSessionAndMarkAttended()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddMinutes(-30), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 1,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.MarkAsAttendedAsync(reservation.Id, Guid.NewGuid());
+
+        response.Status.Should().Be(ReservationStatus.Attended);
+        response.AttendedAt.Should().NotBeNull();
+
+        var updatedBalance = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == balance.Id);
+        updatedBalance.RemainingSessions.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task MarkAsAttendedAsync_WhenTrainingHasNotStarted_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(1), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.MarkAsAttendedAsync(reservation.Id, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Trening još nije počeo.");
+    }
+
+    [Fact]
+    public async Task MarkAsAttendedAsync_WhenUserHasNoSessions_ShouldThrowPaymentRequiredMessage()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddMinutes(-30), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.MarkAsAttendedAsync(reservation.Id, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Korisnik nema dostupnih termina. Prvo evidentirajte uplatu.");
+    }
+
     private static ServiceProvider CreateServiceProvider(int cancellationDeadlineHours = 12)
     {
         var services = new ServiceCollection();
@@ -447,7 +526,9 @@ public class ReservationServiceTests
         services.AddDbContext<AppDbContext>(options =>
         {
             options.UseInMemoryDatabase(Guid.NewGuid().ToString());
+            options.ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         });
+        services.AddScoped<IBalanceService, BalanceService>();
         services.AddScoped<IReservationService, ReservationService>();
 
         return services.BuildServiceProvider();

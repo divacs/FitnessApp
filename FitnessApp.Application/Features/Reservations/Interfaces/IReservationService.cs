@@ -38,4 +38,9 @@ public interface IReservationService
     Task<ReservationResponse> GetReservationByIdAsync(
         Guid reservationId,
         CancellationToken cancellationToken = default);
+
+    Task<ReservationResponse> MarkAsAttendedAsync(
+        Guid reservationId,
+        Guid adminId,
+        CancellationToken cancellationToken = default);
 }

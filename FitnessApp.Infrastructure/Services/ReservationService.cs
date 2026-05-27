@@ -1,5 +1,6 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Common.Responses;
+using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.DTOs;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Reservations.Mappings;
@@ -19,15 +20,18 @@ public class ReservationService : IReservationService
     private const int MaxPageSize = 100;
 
     private readonly AppDbContext _dbContext;
+    private readonly IBalanceService _balanceService;
     private readonly AppSettings _appSettings;
     private readonly ILogger<ReservationService> _logger;
 
     public ReservationService(
         AppDbContext dbContext,
+        IBalanceService balanceService,
         IOptions<AppSettings> appSettings,
         ILogger<ReservationService> logger)
     {
         _dbContext = dbContext;
+        _balanceService = balanceService;
         _appSettings = appSettings.Value;
         _logger = logger;
     }
@@ -85,6 +89,60 @@ public class ReservationService : IReservationService
             reservation.Id,
             userId,
             training.Id);
+
+        return reservation.ToResponse();
+    }
+
+    public async Task<ReservationResponse> MarkAsAttendedAsync(
+        Guid reservationId,
+        Guid adminId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateReservationId(reservationId);
+        ValidateUserId(adminId);
+
+        var reservation = await _dbContext.Reservations
+            .Include(reservation => reservation.User)
+            .Include(reservation => reservation.TrainingSession)
+            .FirstOrDefaultAsync(reservation => reservation.Id == reservationId, cancellationToken);
+
+        if (reservation is null)
+        {
+            throw new NotFoundException("Rezervacija nije pronađena.");
+        }
+
+        if (reservation.Status != ReservationStatus.Reserved)
+        {
+            throw new ConflictException("Rezervacija nije aktivna.");
+        }
+
+        if (reservation.TrainingSession.StartTime > DateTime.UtcNow)
+        {
+            throw new ConflictException("Trening još nije počeo.");
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await _balanceService.ConsumeSessionAsync(reservation.UserId, cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            throw new ConflictException("Korisnik nema dostupnih termina. Prvo evidentirajte uplatu.");
+        }
+
+        reservation.Status = ReservationStatus.Attended;
+        reservation.AttendedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Marked reservation {ReservationId} as attended by admin {AdminId}. Session consumed for user {UserId}.",
+            reservation.Id,
+            adminId,
+            reservation.UserId);
 
         return reservation.ToResponse();
     }
