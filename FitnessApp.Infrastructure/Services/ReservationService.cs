@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Pagination;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.DTOs;
@@ -16,7 +17,6 @@ namespace FitnessApp.Infrastructure.Services;
 public class ReservationService : IReservationService
 {
     private const int MaxUpcomingReservations = 2;
-    private const int MaxPageSize = 100;
 
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
@@ -445,24 +445,16 @@ public class ReservationService : IReservationService
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var normalizedPage = Math.Max(page, 1);
-        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-
         var totalCount = await query.CountAsync(cancellationToken);
         var reservations = await query
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .ApplyPagination(page, pageSize)
             .ToListAsync(cancellationToken);
 
         var items = reservations
             .Select(reservation => reservation.ToResponse())
             .ToArray();
 
-        return new PaginatedResponse<ReservationResponse>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return items.ToPaginatedResponse(page, pageSize, totalCount);
     }
 
     private async Task EnsureUserExistsAsync(

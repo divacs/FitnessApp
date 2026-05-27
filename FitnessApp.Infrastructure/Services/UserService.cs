@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Pagination;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Emails.Interfaces;
 using FitnessApp.Application.Features.Users.DTOs;
@@ -15,8 +16,6 @@ namespace FitnessApp.Infrastructure.Services;
 
 public class UserService : IUserService
 {
-    private const int MaxPageSize = 100;
-
     private readonly AppDbContext _dbContext;
     private readonly IEmailService _emailService;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -41,17 +40,10 @@ public class UserService : IUserService
         string? search = null,
         CancellationToken cancellationToken = default)
     {
-        var normalizedPage = page <= 0 ? 1 : page;
-        var normalizedPageSize = pageSize <= 0 ? 20 : Math.Min(pageSize, MaxPageSize);
-
         var query = _dbContext.Users
             .AsNoTracking()
-            .Where(user => !user.IsDeleted);
-
-        if (status.HasValue)
-        {
-            query = query.Where(user => user.UserStatus == status.Value);
-        }
+            .Where(user => !user.IsDeleted)
+            .WhereIf(status.HasValue, user => user.UserStatus == status!.Value);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -65,8 +57,7 @@ public class UserService : IUserService
         var totalCount = await query.CountAsync(cancellationToken);
         var users = await query
             .OrderByDescending(user => user.CreatedAt)
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .ApplyPagination(page, pageSize)
             .Select(user => new UserListResponse
             {
                 Id = user.Id,
@@ -83,11 +74,7 @@ public class UserService : IUserService
             })
             .ToListAsync(cancellationToken);
 
-        return new PaginatedResponse<UserListResponse>(
-            users,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return users.ToPaginatedResponse(page, pageSize, totalCount);
     }
 
     public async Task<UserProfileResponse> GetProfileAsync(

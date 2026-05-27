@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Pagination;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Notifications.DTOs;
 using FitnessApp.Application.Features.Notifications.Interfaces;
@@ -15,8 +16,6 @@ namespace FitnessApp.Infrastructure.Services;
 
 public class NotificationService : INotificationService
 {
-    private const int MaxPageSize = 100;
-
     private readonly AppDbContext _dbContext;
     private readonly IBackgroundJobClient _backgroundJobClient;
     private readonly ILogger<NotificationService> _logger;
@@ -345,24 +344,16 @@ public class NotificationService : INotificationService
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var normalizedPage = Math.Max(page, 1);
-        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-
         var totalCount = await query.CountAsync(cancellationToken);
         var notifications = await query
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .ApplyPagination(page, pageSize)
             .ToListAsync(cancellationToken);
 
         var items = notifications
             .Select(notification => notification.ToResponse())
             .ToArray();
 
-        return new PaginatedResponse<NotificationResponse>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return items.ToPaginatedResponse(page, pageSize, totalCount);
     }
 
     private static async Task<PaginatedResponse<NotificationResponse>> GetPaginatedNotificationsAsync(
@@ -371,24 +362,16 @@ public class NotificationService : INotificationService
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var normalizedPage = Math.Max(page, 1);
-        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-
         var totalCount = await query.CountAsync(cancellationToken);
         var notifications = await query
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .ApplyPagination(page, pageSize)
             .ToListAsync(cancellationToken);
 
         var items = notifications
             .Select(notification => notification.ToResponse())
             .ToArray();
 
-        return new PaginatedResponse<NotificationResponse>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return items.ToPaginatedResponse(page, pageSize, totalCount);
     }
 
     private static void ValidateRequest(CreateNotificationRequest request)

@@ -1,4 +1,5 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Pagination;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Memberships.Interfaces;
@@ -15,8 +16,6 @@ namespace FitnessApp.Infrastructure.Services;
 
 public class PaymentService : IPaymentService
 {
-    private const int MaxPageSize = 100;
-
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
     private readonly ILogger<PaymentService> _logger;
@@ -364,25 +363,17 @@ public class PaymentService : IPaymentService
         int pageSize,
         CancellationToken cancellationToken)
     {
-        var normalizedPage = Math.Max(page, 1);
-        var normalizedPageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-
         var totalCount = await query.CountAsync(cancellationToken);
         var payments = await query
             .OrderByDescending(payment => payment.PaymentDate)
             .ThenByDescending(payment => payment.CreatedAt)
-            .Skip((normalizedPage - 1) * normalizedPageSize)
-            .Take(normalizedPageSize)
+            .ApplyPagination(page, pageSize)
             .ToListAsync(cancellationToken);
 
         var items = payments
             .Select(payment => payment.ToResponse())
             .ToArray();
 
-        return new PaginatedResponse<PaymentResponse>(
-            items,
-            normalizedPage,
-            normalizedPageSize,
-            totalCount);
+        return items.ToPaginatedResponse(page, pageSize, totalCount);
     }
 }
