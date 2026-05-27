@@ -1,4 +1,7 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Common.Responses;
+using FitnessApp.Application.Features.Notifications.DTOs;
+using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Domain.Entities;
@@ -196,6 +199,39 @@ public class TrainingServiceTests
     }
 
     [Fact]
+    public async Task UpdateTrainingAsync_WhenTrainingHasReservedReservations_ShouldSendUpdatedNotifications()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var notificationService = services.GetRequiredService<FakeNotificationService>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Stari trening");
+        training.Reservations.Add(new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            TrainingSessionId = training.Id,
+            Status = ReservationStatus.Reserved
+        });
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+        var newStartTime = DateTime.UtcNow.AddDays(2);
+
+        await trainingService.UpdateTrainingAsync(
+            training.Id,
+            new UpdateTrainingSessionRequest
+            {
+                Title = "Novi trening",
+                StartTime = newStartTime,
+                EndTime = newStartTime.AddHours(1),
+                Capacity = 8,
+                IsCancelled = false
+            });
+
+        notificationService.UpdatedTrainingIds.Should().ContainSingle(id => id == training.Id);
+    }
+
+    [Fact]
     public async Task CancelTrainingAsync_ShouldMarkTrainingAsCancelled()
     {
         var services = CreateServiceProvider();
@@ -209,6 +245,23 @@ public class TrainingServiceTests
 
         response.IsCancelled.Should().BeTrue();
         response.CancellationReason.Should().Be("Sara je odsutna");
+    }
+
+    [Fact]
+    public async Task CancelTrainingAsync_ShouldSendCancelledNotifications()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var notificationService = services.GetRequiredService<FakeNotificationService>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Trening");
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+
+        await trainingService.CancelTrainingAsync(training.Id, "Sara je odsutna");
+
+        notificationService.CancelledTrainingIds.Should().ContainSingle(id => id == training.Id);
+        notificationService.CancellationReasons.Should().ContainSingle(reason => reason == "Sara je odsutna");
     }
 
     [Fact]
@@ -287,6 +340,8 @@ public class TrainingServiceTests
         {
             options.UseInMemoryDatabase(Guid.NewGuid().ToString());
         });
+        services.AddScoped<FakeNotificationService>();
+        services.AddScoped<INotificationService>(provider => provider.GetRequiredService<FakeNotificationService>());
         services.AddScoped<ITrainingService, TrainingService>();
 
         return services.BuildServiceProvider();
@@ -307,5 +362,84 @@ public class TrainingServiceTests
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
+    }
+
+    private sealed class FakeNotificationService : INotificationService
+    {
+        public List<Guid> CancelledTrainingIds { get; } = new();
+
+        public List<string> CancellationReasons { get; } = new();
+
+        public List<Guid> UpdatedTrainingIds { get; } = new();
+
+        public Task<NotificationResponse> CreateNotificationAsync(
+            CreateNotificationRequest request,
+            Guid adminId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new NotificationResponse());
+        }
+
+        public Task<NotificationResponse> SendGlobalNotificationAsync(
+            CreateNotificationRequest request,
+            Guid adminId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new NotificationResponse());
+        }
+
+        public Task<PaginatedResponse<NotificationResponse>> GetMyNotificationsAsync(
+            Guid userId,
+            int page,
+            int pageSize,
+            bool unreadOnly = false,
+            NotificationType? type = null,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new PaginatedResponse<NotificationResponse>(
+                Array.Empty<NotificationResponse>(),
+                page,
+                pageSize,
+                totalCount: 0));
+        }
+
+        public Task MarkAsReadAsync(
+            Guid userId,
+            Guid userNotificationId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task<PaginatedResponse<NotificationResponse>> GetNotificationsAsync(
+            int page,
+            int pageSize,
+            NotificationType? type = null,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new PaginatedResponse<NotificationResponse>(
+                Array.Empty<NotificationResponse>(),
+                page,
+                pageSize,
+                totalCount: 0));
+        }
+
+        public Task SendTrainingCancelledNotificationsAsync(
+            Guid trainingSessionId,
+            string cancellationReason,
+            CancellationToken cancellationToken = default)
+        {
+            CancelledTrainingIds.Add(trainingSessionId);
+            CancellationReasons.Add(cancellationReason);
+            return Task.CompletedTask;
+        }
+
+        public Task SendTrainingUpdatedNotificationsAsync(
+            Guid trainingSessionId,
+            CancellationToken cancellationToken = default)
+        {
+            UpdatedTrainingIds.Add(trainingSessionId);
+            return Task.CompletedTask;
+        }
     }
 }

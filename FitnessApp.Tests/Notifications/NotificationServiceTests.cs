@@ -108,6 +108,64 @@ public class NotificationServiceTests
         updatedUserNotification.ReadAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task SendTrainingCancelledNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForReservedUsers()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var backgroundJobClient = services.GetRequiredService<FakeBackgroundJobClient>();
+        var notificationService = services.GetRequiredService<INotificationService>();
+        var reservedUser = CreateUser(UserStatus.Verified);
+        var cancelledUser = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1));
+        var reservedReservation = CreateReservation(reservedUser.Id, training.Id, ReservationStatus.Reserved);
+        var cancelledReservation = CreateReservation(cancelledUser.Id, training.Id, ReservationStatus.Cancelled);
+        dbContext.Users.AddRange(reservedUser, cancelledUser);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.AddRange(reservedReservation, cancelledReservation);
+        await dbContext.SaveChangesAsync();
+
+        await notificationService.SendTrainingCancelledNotificationsAsync(training.Id, "Sara je odsutna");
+
+        var notification = await dbContext.Notifications.SingleAsync();
+        notification.Type.Should().Be(NotificationType.TrainingCancelled);
+        notification.Message.Should().Contain("Sara je odsutna");
+        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+
+        var userNotification = await dbContext.UserNotifications.SingleAsync();
+        userNotification.UserId.Should().Be(reservedUser.Id);
+        backgroundJobClient.CreatedJobs.Should().ContainSingle();
+
+        var unchangedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservedReservation.Id);
+        unchangedReservation.Status.Should().Be(ReservationStatus.Reserved);
+    }
+
+    [Fact]
+    public async Task SendTrainingUpdatedNotificationsAsync_ShouldCreateTrainingUpdatedNotification()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var notificationService = services.GetRequiredService<INotificationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(1));
+        var reservation = CreateReservation(user.Id, training.Id, ReservationStatus.Reserved);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await notificationService.SendTrainingUpdatedNotificationsAsync(training.Id);
+
+        var notification = await dbContext.Notifications.SingleAsync();
+        notification.Type.Should().Be(NotificationType.TrainingUpdated);
+        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+
+        var userNotification = await dbContext.UserNotifications.SingleAsync();
+        userNotification.UserId.Should().Be(user.Id);
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
@@ -178,6 +236,38 @@ public class NotificationServiceTests
             IsRead = isRead,
             ReadAt = isRead ? DateTime.UtcNow : null,
             CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static TrainingSession CreateTraining(DateTime startTime)
+    {
+        return new TrainingSession
+        {
+            Id = Guid.NewGuid(),
+            Title = "Trening",
+            Description = string.Empty,
+            StartTime = startTime,
+            EndTime = startTime.AddHours(1),
+            Capacity = 10,
+            TrainerName = "Sara",
+            Location = "Studio",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static Reservation CreateReservation(
+        Guid userId,
+        Guid trainingSessionId,
+        ReservationStatus status)
+    {
+        return new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TrainingSessionId = trainingSessionId,
+            Status = status,
+            ReservedAt = DateTime.UtcNow
         };
     }
 

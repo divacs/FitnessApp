@@ -34,4 +34,13 @@ public interface INotificationService
         int pageSize,
         NotificationType? type = null,
         CancellationToken cancellationToken = default);
+
+    Task SendTrainingCancelledNotificationsAsync(
+        Guid trainingSessionId,
+        string cancellationReason,
+        CancellationToken cancellationToken = default);
+
+    Task SendTrainingUpdatedNotificationsAsync(
+        Guid trainingSessionId,
+        CancellationToken cancellationToken = default);
 }

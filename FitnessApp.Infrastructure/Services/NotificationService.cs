@@ -180,6 +180,36 @@ public class NotificationService : INotificationService
         return await GetPaginatedNotificationsAsync(query, page, pageSize, cancellationToken);
     }
 
+    public Task SendTrainingCancelledNotificationsAsync(
+        Guid trainingSessionId,
+        string cancellationReason,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(cancellationReason))
+        {
+            throw new BadRequestException("Razlog otkazivanja je obavezan.");
+        }
+
+        return SendTrainingNotificationAsync(
+            trainingSessionId,
+            title: "Trening je otkazan",
+            type: NotificationType.TrainingCancelled,
+            messageFactory: training => BuildTrainingCancelledMessage(training, cancellationReason.Trim()),
+            cancellationToken);
+    }
+
+    public Task SendTrainingUpdatedNotificationsAsync(
+        Guid trainingSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendTrainingNotificationAsync(
+            trainingSessionId,
+            title: "Trening je izmenjen",
+            type: NotificationType.TrainingUpdated,
+            messageFactory: BuildTrainingUpdatedMessage,
+            cancellationToken);
+    }
+
     private void EnqueueNotificationEmails(
         Notification notification,
         IReadOnlyCollection<ApplicationUser> users)
@@ -198,6 +228,100 @@ public class NotificationService : INotificationService
             _backgroundJobClient.Enqueue<NotificationEmailJob>(
                 job => job.SendAsync(user.Email, user.FirstName, notification.Title, notification.Message));
         }
+    }
+
+    private async Task SendTrainingNotificationAsync(
+        Guid trainingSessionId,
+        string title,
+        NotificationType type,
+        Func<TrainingSession, string> messageFactory,
+        CancellationToken cancellationToken)
+    {
+        if (trainingSessionId == Guid.Empty)
+        {
+            throw new BadRequestException("Trening je obavezan.");
+        }
+
+        var training = await _dbContext.TrainingSessions
+            .Include(training => training.Reservations)
+                .ThenInclude(reservation => reservation.User)
+            .FirstOrDefaultAsync(training => training.Id == trainingSessionId, cancellationToken);
+
+        if (training is null)
+        {
+            throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        var reservedUsers = training.Reservations
+            .Where(reservation => reservation.Status == ReservationStatus.Reserved)
+            .Select(reservation => reservation.User)
+            .Where(user => !user.IsDeleted)
+            .GroupBy(user => user.Id)
+            .Select(group => group.First())
+            .ToArray();
+
+        if (reservedUsers.Length == 0)
+        {
+            _logger.LogInformation(
+                "No reserved users found for training notification {NotificationType} and training {TrainingSessionId}.",
+                type,
+                trainingSessionId);
+            return;
+        }
+
+        var notification = new Notification
+        {
+            Title = title,
+            Message = messageFactory(training),
+            Type = type,
+            SendEmail = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        foreach (var user in reservedUsers)
+        {
+            notification.UserNotifications.Add(new UserNotification
+            {
+                UserId = user.Id,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        _dbContext.Notifications.Add(notification);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        EnqueueNotificationEmails(notification, reservedUsers);
+
+        _logger.LogInformation(
+            "Sent {NotificationType} notification {NotificationId} to {UserCount} reserved users for training {TrainingSessionId}.",
+            type,
+            notification.Id,
+            reservedUsers.Length,
+            trainingSessionId);
+    }
+
+    private static string BuildTrainingCancelledMessage(
+        TrainingSession training,
+        string cancellationReason)
+    {
+        return $"""
+            Trening "{training.Title}" je otkazan.
+
+            Datum: {training.StartTime:dd.MM.yyyy.}
+            Vreme: {training.StartTime:HH:mm}
+            Razlog: {cancellationReason}
+            """;
+    }
+
+    private static string BuildTrainingUpdatedMessage(TrainingSession training)
+    {
+        return $"""
+            Trening "{training.Title}" je izmenjen.
+
+            Datum: {training.StartTime:dd.MM.yyyy.}
+            Vreme: {training.StartTime:HH:mm}
+            Lokacija: {training.Location}
+            """;
     }
 
     private static Notification CreateNotification(

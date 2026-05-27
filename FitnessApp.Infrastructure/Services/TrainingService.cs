@@ -1,7 +1,9 @@
 using FitnessApp.Application.Common.Exceptions;
+using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Application.Features.Trainings.Mappings;
+using FitnessApp.Domain.Enums;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -12,13 +14,16 @@ namespace FitnessApp.Infrastructure.Services;
 public class TrainingService : ITrainingService
 {
     private readonly AppDbContext _dbContext;
+    private readonly INotificationService _notificationService;
     private readonly ILogger<TrainingService> _logger;
 
     public TrainingService(
         AppDbContext dbContext,
+        INotificationService notificationService,
         ILogger<TrainingService> logger)
     {
         _dbContext = dbContext;
+        _notificationService = notificationService;
         _logger = logger;
     }
 
@@ -138,6 +143,11 @@ public class TrainingService : ITrainingService
 
         _logger.LogInformation("Updated training session {TrainingSessionId}.", training.Id);
 
+        if (training.Reservations.Any(reservation => reservation.Status == ReservationStatus.Reserved))
+        {
+            await _notificationService.SendTrainingUpdatedNotificationsAsync(training.Id, cancellationToken);
+        }
+
         return training.ToResponse();
     }
 
@@ -157,7 +167,11 @@ public class TrainingService : ITrainingService
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // TODO: Send training cancellation notifications to reserved users.
+        await _notificationService.SendTrainingCancelledNotificationsAsync(
+            training.Id,
+            training.CancellationReason!,
+            cancellationToken);
+
         _logger.LogInformation("Cancelled training session {TrainingSessionId}.", training.Id);
 
         return training.ToResponse();
