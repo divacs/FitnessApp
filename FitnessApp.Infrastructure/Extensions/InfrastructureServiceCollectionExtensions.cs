@@ -59,6 +59,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IBalanceService, BalanceService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IReservationService, ReservationService>();
+        services.AddScoped<IAutoAttendanceService, AutoAttendanceService>();
         services.AddScoped<ITrainingService, TrainingService>();
 
         return services;
