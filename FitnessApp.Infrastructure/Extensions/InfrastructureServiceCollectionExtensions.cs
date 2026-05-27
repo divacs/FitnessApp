@@ -1,5 +1,6 @@
 using FitnessApp.Domain.Entities;
 using FitnessApp.Application.Features.Auth.Interfaces;
+using FitnessApp.Application.Features.Dashboard.Interfaces;
 using FitnessApp.Application.Features.Emails.Interfaces;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Notifications.Interfaces;
@@ -72,6 +73,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddScoped<IIdentitySeeder, IdentitySeeder>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IUserService, UserService>();
