@@ -79,6 +79,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ITrainingService, TrainingService>();
         services.AddScoped<AutoMarkAttendanceJob>();
         services.AddScoped<TrainingReminderJob>();
+        services.AddScoped<MembershipExpirationReminderJob>();
 
         return services;
     }

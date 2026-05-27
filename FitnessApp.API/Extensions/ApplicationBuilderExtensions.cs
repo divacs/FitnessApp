@@ -55,6 +55,11 @@ public static class ApplicationBuilderExtensions
             job => job.ExecuteAsync(),
             "*/30 * * * *");
 
+        recurringJobManager.AddOrUpdate<MembershipExpirationReminderJob>(
+            "membership-expiration-reminders",
+            job => job.ExecuteAsync(),
+            "0 9 * * *");
+
         logger.LogInformation("Registered recurring jobs.");
 
         return app;
