@@ -43,4 +43,9 @@ public interface IReservationService
         Guid reservationId,
         Guid adminId,
         CancellationToken cancellationToken = default);
+
+    Task<ReservationResponse> MarkAsNoShowAsync(
+        Guid reservationId,
+        Guid adminId,
+        CancellationToken cancellationToken = default);
 }

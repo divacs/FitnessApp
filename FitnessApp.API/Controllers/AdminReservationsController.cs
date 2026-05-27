@@ -67,4 +67,15 @@ public class AdminReservationsController : ControllerBase
 
         return Ok(ApiResponse<ReservationResponse>.Success(reservation, "Rezervacija je označena kao prisutna."));
     }
+
+    [HttpPost("{id:guid}/no-show")]
+    public async Task<ActionResult<ApiResponse<ReservationResponse>>> MarkAsNoShow(
+        Guid id,
+        CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        var reservation = await _reservationService.MarkAsNoShowAsync(id, adminId, cancellationToken);
+
+        return Ok(ApiResponse<ReservationResponse>.Success(reservation, "Rezervacija je označena kao nedolazak."));
+    }
 }

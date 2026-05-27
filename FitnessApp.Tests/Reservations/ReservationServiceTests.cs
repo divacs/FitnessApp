@@ -511,6 +511,102 @@ public class ReservationServiceTests
             .WithMessage("Korisnik nema dostupnih termina. Prvo evidentirajte uplatu.");
     }
 
+    [Fact]
+    public async Task MarkAsNoShowAsync_WhenUserHasAvailableSession_ShouldConsumeSessionAndMarkNoShow()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(-2), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 1,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.MarkAsNoShowAsync(reservation.Id, Guid.NewGuid());
+
+        response.Status.Should().Be(ReservationStatus.NoShow);
+        response.NoShowAt.Should().NotBeNull();
+
+        var updatedBalance = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == balance.Id);
+        updatedBalance.RemainingSessions.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task MarkAsNoShowAsync_WhenTrainingHasNotFinished_ShouldThrowConflict()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddMinutes(-30), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.MarkAsNoShowAsync(reservation.Id, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Trening još nije završen.");
+    }
+
+    [Fact]
+    public async Task MarkAsNoShowAsync_WhenSecondConsecutiveNoShowAndNoSessionsRemain_ShouldBlockUser()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var previousTraining = CreateTraining(DateTime.UtcNow.AddDays(-2), capacity: 10);
+        var currentTraining = CreateTraining(DateTime.UtcNow.AddHours(-2), capacity: 10);
+        var previousReservation = CreateReservation(user.Id, previousTraining.Id);
+        previousReservation.Status = ReservationStatus.NoShow;
+        previousReservation.NoShowAt = DateTime.UtcNow.AddDays(-2);
+        var currentReservation = CreateReservation(user.Id, currentTraining.Id);
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 1,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow.AddDays(-3),
+            EndDate = null,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-3)
+        };
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.AddRange(previousTraining, currentTraining);
+        dbContext.Reservations.AddRange(previousReservation, currentReservation);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        await reservationService.MarkAsNoShowAsync(currentReservation.Id, Guid.NewGuid());
+
+        var updatedUser = await dbContext.Users.SingleAsync(x => x.Id == user.Id);
+        updatedUser.UserStatus.Should().Be(UserStatus.Blocked);
+        updatedUser.BlockedAt.Should().NotBeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider(int cancellationDeadlineHours = 12)
     {
         var services = new ServiceCollection();

@@ -147,6 +147,64 @@ public class ReservationService : IReservationService
         return reservation.ToResponse();
     }
 
+    public async Task<ReservationResponse> MarkAsNoShowAsync(
+        Guid reservationId,
+        Guid adminId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateReservationId(reservationId);
+        ValidateUserId(adminId);
+
+        var reservation = await _dbContext.Reservations
+            .Include(reservation => reservation.User)
+            .Include(reservation => reservation.TrainingSession)
+            .FirstOrDefaultAsync(reservation => reservation.Id == reservationId, cancellationToken);
+
+        if (reservation is null)
+        {
+            throw new NotFoundException("Rezervacija nije pronađena.");
+        }
+
+        if (reservation.Status != ReservationStatus.Reserved)
+        {
+            throw new ConflictException("Rezervacija nije aktivna.");
+        }
+
+        if (reservation.TrainingSession.EndTime > DateTime.UtcNow)
+        {
+            throw new ConflictException("Trening još nije završen.");
+        }
+
+        await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await _balanceService.ConsumeSessionAsync(reservation.UserId, cancellationToken);
+        }
+        catch (ConflictException)
+        {
+            throw new ConflictException("Korisnik nema dostupnih termina. Prvo evidentirajte uplatu.");
+        }
+
+        reservation.Status = ReservationStatus.NoShow;
+        reservation.NoShowAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        await CheckForAutomaticBlockAsync(reservation.UserId, cancellationToken);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Marked reservation {ReservationId} as no-show by admin {AdminId}. Session consumed for user {UserId}.",
+            reservation.Id,
+            adminId,
+            reservation.UserId);
+
+        return reservation.ToResponse();
+    }
+
     public async Task<ReservationResponse> CancelReservationAsync(
         Guid reservationId,
         Guid userId,
@@ -419,6 +477,56 @@ public class ReservationService : IReservationService
         {
             throw new NotFoundException("Korisnik nije pronađen.");
         }
+    }
+
+    private async Task CheckForAutomaticBlockAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var latestReservations = await _dbContext.Reservations
+            .AsNoTracking()
+            .Include(reservation => reservation.TrainingSession)
+            .Where(reservation =>
+                reservation.UserId == userId
+                && (reservation.Status == ReservationStatus.Attended
+                    || reservation.Status == ReservationStatus.NoShow))
+            .OrderByDescending(reservation => reservation.TrainingSession.StartTime)
+            .Take(2)
+            .Select(reservation => reservation.Status)
+            .ToListAsync(cancellationToken);
+
+        var hasTwoConsecutiveNoShows = latestReservations.Count == 2
+            && latestReservations.All(status => status == ReservationStatus.NoShow);
+
+        if (!hasTwoConsecutiveNoShows)
+        {
+            return;
+        }
+
+        var currentBalance = await _balanceService.GetCurrentBalanceAsync(userId, cancellationToken);
+        var hasNoActivePackageOrAvailableSessions = currentBalance.ActivePackage is null
+            && !currentBalance.HasAvailableSessions;
+
+        if (!hasNoActivePackageOrAvailableSessions)
+        {
+            return;
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == userId && !user.IsDeleted, cancellationToken);
+
+        if (user is null || user.UserStatus == UserStatus.Blocked)
+        {
+            return;
+        }
+
+        user.UserStatus = UserStatus.Blocked;
+        user.BlockedAt = DateTime.UtcNow;
+
+        // TODO: Send future notification/email when a user is automatically blocked.
+        _logger.LogWarning(
+            "Automatically blocked user {UserId} after two consecutive no-show reservations without active package or available sessions.",
+            userId);
     }
 
     private static void EnsureUserCanReserve(ApplicationUser user)
