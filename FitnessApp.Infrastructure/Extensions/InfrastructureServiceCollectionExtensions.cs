@@ -6,10 +6,13 @@ using FitnessApp.Application.Features.Payments.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Application.Features.Users.Interfaces;
+using FitnessApp.Infrastructure.Jobs;
 using FitnessApp.Infrastructure.Emails;
 using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using FitnessApp.Infrastructure.Services;
+using Hangfire;
+using Hangfire.SqlServer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -34,6 +37,19 @@ public static class InfrastructureServiceCollectionExtensions
         {
             options.UseSqlServer(connectionString);
         });
+
+        services.AddHangfire(configuration =>
+        {
+            configuration
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
+                {
+                    PrepareSchemaIfNecessary = true
+                });
+        });
+        services.AddHangfireServer();
 
         services
             .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
@@ -61,6 +77,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<IAutoAttendanceService, AutoAttendanceService>();
         services.AddScoped<ITrainingService, TrainingService>();
+        services.AddScoped<AutoMarkAttendanceJob>();
 
         return services;
     }

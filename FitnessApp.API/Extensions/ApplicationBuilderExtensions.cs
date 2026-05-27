@@ -1,6 +1,8 @@
 using FitnessApp.API.Middleware;
 using FitnessApp.Infrastructure.Identity;
+using FitnessApp.Infrastructure.Jobs;
 using FitnessApp.Infrastructure.Persistence;
+using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -25,6 +27,32 @@ public static class ApplicationBuilderExtensions
         var identitySeeder = scope.ServiceProvider.GetRequiredService<IIdentitySeeder>();
 
         await identitySeeder.SeedAsync();
+    }
+
+    public static async Task<WebApplication> RegisterRecurringJobsAsync(this WebApplication app)
+    {
+        using var scope = app.Services.CreateScope();
+
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger(nameof(RegisterRecurringJobsAsync));
+
+        if (!await dbContext.Database.CanConnectAsync())
+        {
+            logger.LogWarning("Skipping recurring job registration because the database connection is not available.");
+            return app;
+        }
+
+        var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+        recurringJobManager.AddOrUpdate<AutoMarkAttendanceJob>(
+            "auto-mark-attendance",
+            job => job.ExecuteAsync(),
+            "*/30 * * * *");
+
+        logger.LogInformation("Registered auto attendance recurring job to run every 30 minutes.");
+
+        return app;
     }
 
     public static WebApplication UseApiPipeline(this WebApplication app)

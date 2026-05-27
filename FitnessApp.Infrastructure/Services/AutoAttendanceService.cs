@@ -31,7 +31,6 @@ public class AutoAttendanceService : IAutoAttendanceService
 
     public async Task AutoMarkAttendanceAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: Register this workflow through a Hangfire recurring scheduler.
         var utcNow = DateTime.UtcNow;
         var eligibleTrainingEndTime = utcNow.AddMinutes(-_appSettings.AutoMarkAttendanceDelayMinutes);
 

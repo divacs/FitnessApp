@@ -23,6 +23,7 @@ builder.Services
 var app = builder.Build();
 
 await app.SeedIdentityAsync();
+await app.RegisterRecurringJobsAsync();
 
 app.UseApiPipeline();
 
