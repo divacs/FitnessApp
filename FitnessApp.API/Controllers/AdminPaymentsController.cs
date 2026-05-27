@@ -92,12 +92,12 @@ public class AdminPaymentsController : ControllerBase
     }
 
     [HttpDelete("payments/{id:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeletePayment(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> DeletePayment(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _paymentService.DeletePaymentAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Uplata je uspešno obrisana."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Uplata je uspešno obrisana."));
     }
 }

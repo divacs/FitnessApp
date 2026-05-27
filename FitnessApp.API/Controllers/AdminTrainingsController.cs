@@ -55,12 +55,12 @@ public class AdminTrainingsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteTraining(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> DeleteTraining(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _trainingService.DeleteTrainingAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Trening je uspešno obrisan."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Trening je uspešno obrisan."));
     }
 }

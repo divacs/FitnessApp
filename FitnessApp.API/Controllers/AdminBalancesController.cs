@@ -88,12 +88,12 @@ public class AdminBalancesController : ControllerBase
     }
 
     [HttpDelete("balances/{id:guid}")]
-    public async Task<ActionResult<ApiResponse<object>>> DeleteBalance(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> DeleteBalance(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _balanceService.DeleteBalanceAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Stanje termina je obrisano."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Stanje termina je obrisano."));
     }
 }

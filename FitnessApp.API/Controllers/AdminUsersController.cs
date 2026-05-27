@@ -39,32 +39,32 @@ public class AdminUsersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/verify")]
-    public async Task<ActionResult<ApiResponse<object>>> VerifyUser(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> VerifyUser(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _userService.VerifyUserAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Korisnik je uspešno verifikovan."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Korisnik je uspešno verifikovan."));
     }
 
     [HttpPost("{id:guid}/block")]
-    public async Task<ActionResult<ApiResponse<object>>> BlockUser(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> BlockUser(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _userService.BlockUserAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Korisnik je blokiran."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Korisnik je blokiran."));
     }
 
     [HttpPost("{id:guid}/unblock")]
-    public async Task<ActionResult<ApiResponse<object>>> UnblockUser(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> UnblockUser(
         Guid id,
         CancellationToken cancellationToken)
     {
         await _userService.UnblockUserAsync(id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Korisnik je odblokiran."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Korisnik je odblokiran."));
     }
 }

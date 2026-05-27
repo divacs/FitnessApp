@@ -42,13 +42,13 @@ public class NotificationsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/read")]
-    public async Task<ActionResult<ApiResponse<object>>> MarkAsRead(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> MarkAsRead(
         Guid id,
         CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
         await _notificationService.MarkAsReadAsync(userId, id, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Notifikacija je označena kao pročitana."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Notifikacija je označena kao pročitana."));
     }
 }

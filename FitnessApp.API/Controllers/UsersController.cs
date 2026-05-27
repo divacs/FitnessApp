@@ -42,13 +42,13 @@ public class UsersController : ControllerBase
     }
 
     [HttpPut("change-password")]
-    public async Task<ActionResult<ApiResponse<object>>> ChangePassword(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> ChangePassword(
         ChangePasswordRequest request,
         CancellationToken cancellationToken)
     {
         var userId = User.GetUserId();
         await _userService.ChangePasswordAsync(userId, request, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Lozinka je uspešno promenjena."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Lozinka je uspešno promenjena."));
     }
 }

@@ -55,13 +55,13 @@ public class AuthController : ControllerBase
 
     [HttpPost("logout")]
     [AllowAnonymous]
-    public async Task<ActionResult<ApiResponse<object>>> Logout(
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> Logout(
         RevokeTokenRequest request,
         CancellationToken cancellationToken)
     {
         await _authService.RevokeTokenAsync(request, cancellationToken);
 
-        return Ok(ApiResponse<object>.Success(new { }, "Uspešno ste se odjavili."));
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Uspešno ste se odjavili."));
     }
 
     [HttpGet("me")]
