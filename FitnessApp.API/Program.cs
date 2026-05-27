@@ -10,7 +10,7 @@ builder.Host.UseSerilog((context, services, configuration) =>
         .ReadFrom.Configuration(context.Configuration)
         .ReadFrom.Services(services)
         .Enrich.FromLogContext()
-        .WriteTo.Console();
+        .Enrich.WithProperty("Application", "FitnessApp");
 });
 
 builder.Services
