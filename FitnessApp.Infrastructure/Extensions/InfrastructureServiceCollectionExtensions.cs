@@ -78,6 +78,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<IAutoAttendanceService, AutoAttendanceService>();
         services.AddScoped<ITrainingService, TrainingService>();
         services.AddScoped<AutoMarkAttendanceJob>();
+        services.AddScoped<TrainingReminderJob>();
 
         return services;
     }

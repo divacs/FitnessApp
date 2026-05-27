@@ -50,7 +50,12 @@ public static class ApplicationBuilderExtensions
             job => job.ExecuteAsync(),
             "*/30 * * * *");
 
-        logger.LogInformation("Registered auto attendance recurring job to run every 30 minutes.");
+        recurringJobManager.AddOrUpdate<TrainingReminderJob>(
+            "training-reminders",
+            job => job.ExecuteAsync(),
+            "*/30 * * * *");
+
+        logger.LogInformation("Registered recurring jobs.");
 
         return app;
     }
