@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Endpoint-i za registraciju, prijavu i upravljanje korisničkom sesijom.
+/// </summary>
 [ApiController]
 [Route("api/auth")]
 public class AuthController : ControllerBase
@@ -18,6 +21,9 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    /// <summary>
+    /// Registruje novog korisnika i vraća osnovne podatke o nalogu.
+    /// </summary>
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Register(
@@ -31,6 +37,9 @@ public class AuthController : ControllerBase
             "Registracija je uspešna. Sačekajte verifikaciju naloga."));
     }
 
+    /// <summary>
+    /// Prijavljuje korisnika i vraća access i refresh token.
+    /// </summary>
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> Login(
@@ -42,6 +51,9 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<AuthResponse>.Success(response));
     }
 
+    /// <summary>
+    /// Osvežava JWT sesiju na osnovu validnog refresh token-a.
+    /// </summary>
     [HttpPost("refresh-token")]
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<AuthResponse>>> RefreshToken(
@@ -53,6 +65,9 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<AuthResponse>.Success(response));
     }
 
+    /// <summary>
+    /// Opoziva refresh token i odjavljuje korisnika sa uređaja.
+    /// </summary>
     [HttpPost("logout")]
     [AllowAnonymous]
     public async Task<ActionResult<ApiResponse<EmptyResponse>>> Logout(
@@ -64,6 +79,9 @@ public class AuthController : ControllerBase
         return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Uspešno ste se odjavili."));
     }
 
+    /// <summary>
+    /// Vraća podatke o trenutno prijavljenom korisniku.
+    /// </summary>
     [HttpGet("me")]
     [Authorize]
     public async Task<ActionResult<ApiResponse<CurrentUserResponse>>> Me(

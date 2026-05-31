@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Admin endpoint-i za pregled i slanje notifikacija.
+/// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicyConstants.AdminOnly)]
 [Route("api/admin/notifications")]
@@ -21,6 +24,9 @@ public class AdminNotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
+    /// <summary>
+    /// Vraća paginiran pregled sistemskih notifikacija.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PaginatedResponse<NotificationResponse>>>> GetNotifications(
         [FromQuery] int page = 1,
@@ -37,6 +43,9 @@ public class AdminNotificationsController : ControllerBase
         return Ok(ApiResponse<PaginatedResponse<NotificationResponse>>.Success(notifications));
     }
 
+    /// <summary>
+    /// Šalje globalnu notifikaciju svim korisnicima.
+    /// </summary>
     [HttpPost("global")]
     public async Task<ActionResult<ApiResponse<NotificationResponse>>> SendGlobalNotification(
         CreateNotificationRequest request,

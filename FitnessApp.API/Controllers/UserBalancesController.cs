@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Endpoint-i za pregled članarine i stanja termina prijavljenog korisnika.
+/// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicyConstants.VerifiedUsersOnly)]
 [Route("api/me")]
@@ -20,6 +23,9 @@ public class UserBalancesController : ControllerBase
         _balanceService = balanceService;
     }
 
+    /// <summary>
+    /// Vraća trenutno aktivno stanje termina za prijavljenog korisnika.
+    /// </summary>
     [HttpGet("balance")]
     public async Task<ActionResult<ApiResponse<CurrentBalanceResponse>>> GetCurrentBalance(
         CancellationToken cancellationToken)
@@ -30,6 +36,9 @@ public class UserBalancesController : ControllerBase
         return Ok(ApiResponse<CurrentBalanceResponse>.Success(balance));
     }
 
+    /// <summary>
+    /// Vraća istoriju paketa i promena stanja termina prijavljenog korisnika.
+    /// </summary>
     [HttpGet("balances/history")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<BalanceHistoryResponse>>>> GetBalanceHistory(
         CancellationToken cancellationToken)

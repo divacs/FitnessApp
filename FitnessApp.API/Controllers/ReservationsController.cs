@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Endpoint-i koje verifikovani korisnik koristi za upravljanje svojim rezervacijama.
+/// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicyConstants.VerifiedUsersOnly)]
 [Route("api/reservations")]
@@ -20,6 +23,11 @@ public class ReservationsController : ControllerBase
         _reservationService = reservationService;
     }
 
+    /// <summary>
+    /// Otkazuje postojeću korisničku rezervaciju za trening.
+    /// </summary>
+    /// <param name="id">Identifikator rezervacije.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPost("{id:guid}/cancel")]
     public async Task<ActionResult<ApiResponse<ReservationResponse>>> CancelReservation(
         Guid id,

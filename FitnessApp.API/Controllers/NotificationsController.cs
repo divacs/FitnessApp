@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Endpoint-i za pregled i označavanje korisničkih notifikacija.
+/// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicyConstants.VerifiedUsersOnly)]
 [Route("api/notifications")]
@@ -21,6 +24,9 @@ public class NotificationsController : ControllerBase
         _notificationService = notificationService;
     }
 
+    /// <summary>
+    /// Vraća paginiran pregled notifikacija prijavljenog korisnika.
+    /// </summary>
     [HttpGet]
     public async Task<ActionResult<ApiResponse<PaginatedResponse<NotificationResponse>>>> GetMyNotifications(
         [FromQuery] int page = 1,
@@ -41,6 +47,11 @@ public class NotificationsController : ControllerBase
         return Ok(ApiResponse<PaginatedResponse<NotificationResponse>>.Success(notifications));
     }
 
+    /// <summary>
+    /// Označava jednu korisničku notifikaciju kao pročitanu.
+    /// </summary>
+    /// <param name="id">Identifikator notifikacije.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPost("{id:guid}/read")]
     public async Task<ActionResult<ApiResponse<EmptyResponse>>> MarkAsRead(
         Guid id,

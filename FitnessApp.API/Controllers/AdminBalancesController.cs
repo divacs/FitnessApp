@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace FitnessApp.API.Controllers;
 
+/// <summary>
+/// Admin endpoint-i za pregled i upravljanje korisničkim paketima i terminima.
+/// </summary>
 [ApiController]
 [Authorize(Policy = AuthorizationPolicyConstants.AdminOnly)]
 [Route("api/admin")]
@@ -20,6 +23,11 @@ public class AdminBalancesController : ControllerBase
         _balanceService = balanceService;
     }
 
+    /// <summary>
+    /// Vraća sva stanja termina za izabranog korisnika.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpGet("users/{userId:guid}/balances")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<UserTrainingBalanceResponse>>>> GetUserBalances(
         Guid userId,
@@ -30,6 +38,11 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<IReadOnlyCollection<UserTrainingBalanceResponse>>.Success(balances));
     }
 
+    /// <summary>
+    /// Vraća trenutno aktivno stanje termina za izabranog korisnika.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpGet("users/{userId:guid}/balances/current")]
     public async Task<ActionResult<ApiResponse<CurrentBalanceResponse>>> GetCurrentBalance(
         Guid userId,
@@ -40,6 +53,12 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<CurrentBalanceResponse>.Success(balance));
     }
 
+    /// <summary>
+    /// Dodaje paket od 12 termina korisniku.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="request">Podaci za novi paket.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPost("users/{userId:guid}/balances/package-12")]
     public async Task<ActionResult<ApiResponse<UserTrainingBalanceResponse>>> CreatePackage12(
         Guid userId,
@@ -52,6 +71,12 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Paket od 12 termina je dodat."));
     }
 
+    /// <summary>
+    /// Dodaje paket od 6 termina korisniku.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="request">Podaci za novi paket.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPost("users/{userId:guid}/balances/package-6")]
     public async Task<ActionResult<ApiResponse<UserTrainingBalanceResponse>>> CreatePackage6(
         Guid userId,
@@ -64,6 +89,12 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Paket od 6 termina je dodat."));
     }
 
+    /// <summary>
+    /// Dodaje pojedinačne termine korisniku bez kreiranja paketa.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="request">Podaci o broju termina za dodavanje.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPost("users/{userId:guid}/balances/single-sessions")]
     public async Task<ActionResult<ApiResponse<UserTrainingBalanceResponse>>> AddSingleSessions(
         Guid userId,
@@ -76,6 +107,12 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Pojedinačni termini su dodati."));
     }
 
+    /// <summary>
+    /// Ažurira postojeće stanje termina.
+    /// </summary>
+    /// <param name="id">Identifikator stanja termina.</param>
+    /// <param name="request">Podaci za izmenu stanja termina.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpPut("balances/{id:guid}")]
     public async Task<ActionResult<ApiResponse<UserTrainingBalanceResponse>>> UpdateBalance(
         Guid id,
@@ -87,6 +124,11 @@ public class AdminBalancesController : ControllerBase
         return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Stanje termina je ažurirano."));
     }
 
+    /// <summary>
+    /// Briše stanje termina iz sistema.
+    /// </summary>
+    /// <param name="id">Identifikator stanja termina.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
     [HttpDelete("balances/{id:guid}")]
     public async Task<ActionResult<ApiResponse<EmptyResponse>>> DeleteBalance(
         Guid id,

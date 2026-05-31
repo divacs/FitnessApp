@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
+using System.Reflection;
 using System.Security.Claims;
 using System.Text;
 
@@ -129,10 +130,17 @@ public static class ServiceCollectionExtensions
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(options =>
         {
+            options.SwaggerDoc("v1", new OpenApiInfo
+            {
+                Title = "FitnessApp API",
+                Version = "v1",
+                Description = "API dokumentacija za FitnessApp frontend i admin integraciju."
+            });
+
             var securityScheme = new OpenApiSecurityScheme
             {
                 Name = "Authorization",
-                Description = "Enter JWT Bearer token.",
+                Description = "Unesite JWT token u formatu: Bearer {token}",
                 In = ParameterLocation.Header,
                 Type = SecuritySchemeType.Http,
                 Scheme = "bearer",
@@ -149,9 +157,44 @@ public static class ServiceCollectionExtensions
             {
                 [securityScheme] = Array.Empty<string>()
             });
+
+            options.TagActionsBy(apiDescription =>
+            {
+                var controllerName = apiDescription.ActionDescriptor.RouteValues["controller"];
+                return [ResolveSwaggerTag(controllerName)];
+            });
+
+            options.OrderActionsBy(apiDescription =>
+            {
+                var method = apiDescription.HttpMethod ?? string.Empty;
+                return $"{ResolveSwaggerTag(apiDescription.ActionDescriptor.RouteValues["controller"])}_{method}_{apiDescription.RelativePath}";
+            });
+
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
         });
 
         return services;
+    }
+
+    private static string ResolveSwaggerTag(string? controllerName)
+    {
+        return controllerName switch
+        {
+            "Auth" => "Auth",
+            "Reservations" or "AdminReservations" => "Reservations",
+            "AdminPayments" => "Payments",
+            "UserBalances" or "AdminBalances" => "Memberships & Balances",
+            "Notifications" or "AdminNotifications" => "Notifications",
+            _ => controllerName?
+                .Replace("Admin", string.Empty, StringComparison.Ordinal)
+                .Replace("Controller", string.Empty, StringComparison.Ordinal)
+                ?? "API"
+        };
     }
 
     public static IServiceCollection AddCorsPolicy(
