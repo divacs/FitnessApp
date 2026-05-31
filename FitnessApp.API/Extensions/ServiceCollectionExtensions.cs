@@ -1,12 +1,16 @@
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Auth.Validators;
 using FitnessApp.Application.Settings;
+using FitnessApp.Domain.Enums;
+using FitnessApp.Infrastructure.Persistence;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 
 namespace FitnessApp.API.Extensions;
@@ -77,6 +81,42 @@ public static class ServiceCollectionExtensions
                     ValidateIssuerSigningKey = true,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret)),
                     ClockSkew = TimeSpan.Zero
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var userIdValue = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+
+                        if (!Guid.TryParse(userIdValue, out var userId))
+                        {
+                            context.Fail("Pristupni token nije validan.");
+                            return;
+                        }
+
+                        var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                        var user = await dbContext.Users
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(x => x.Id == userId, context.HttpContext.RequestAborted);
+
+                        if (user is null || user.IsDeleted)
+                        {
+                            context.Fail("Korisnički nalog više nije dostupan.");
+                            return;
+                        }
+
+                        if (user.UserStatus == UserStatus.Blocked)
+                        {
+                            context.Fail("Korisnik je blokiran.");
+                            return;
+                        }
+
+                        if (user.UserStatus != UserStatus.Verified)
+                        {
+                            context.Fail("Korisnik još nije verifikovan.");
+                        }
+                    }
                 };
             });
 

@@ -61,6 +61,29 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task BlockUserAsync_ShouldRevokeActiveRefreshTokens()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var userService = services.GetRequiredService<IUserService>();
+        var user = CreateUser(UserStatus.Verified);
+        dbContext.Users.Add(user);
+        dbContext.RefreshTokens.Add(new RefreshToken
+        {
+            UserId = user.Id,
+            Token = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+        await dbContext.SaveChangesAsync();
+
+        await userService.BlockUserAsync(user.Id);
+
+        var storedToken = await dbContext.RefreshTokens.SingleAsync(x => x.UserId == user.Id);
+        storedToken.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetUsersAsync_ShouldFilterByStatusAndSearchAndReturnPagination()
     {
         var services = CreateServiceProvider();

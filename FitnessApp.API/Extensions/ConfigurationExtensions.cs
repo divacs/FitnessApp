@@ -13,8 +13,10 @@ public static class ConfigurationExtensions
             .Validate(settings => !string.IsNullOrWhiteSpace(settings.Issuer), "JwtSettings:Issuer is required.")
             .Validate(settings => !string.IsNullOrWhiteSpace(settings.Audience), "JwtSettings:Audience is required.")
             .Validate(settings => !string.IsNullOrWhiteSpace(settings.Secret), "JwtSettings:Secret is required.")
+            .Validate(settings => settings.Secret.Trim().Length >= 32, "JwtSettings:Secret must be at least 32 characters long.")
             .Validate(settings => settings.ExpirationMinutes > 0, "JwtSettings:ExpirationMinutes must be greater than zero.")
-            .Validate(settings => settings.RefreshTokenExpirationDays > 0, "JwtSettings:RefreshTokenExpirationDays must be greater than zero.");
+            .Validate(settings => settings.RefreshTokenExpirationDays > 0, "JwtSettings:RefreshTokenExpirationDays must be greater than zero.")
+            .ValidateOnStart();
 
         services.AddOptions<EmailSettings>()
             .Bind(configuration.GetSection(EmailSettings.SectionName))

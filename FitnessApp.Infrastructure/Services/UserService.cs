@@ -157,14 +157,27 @@ public class UserService : IUserService
     public async Task BlockUserAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var user = await GetUserAsync(userId, cancellationToken);
+        var utcNow = DateTime.UtcNow;
 
         user.UserStatus = UserStatus.Blocked;
-        user.BlockedAt = DateTime.UtcNow;
-        user.UpdatedAt = DateTime.UtcNow;
+        user.BlockedAt = utcNow;
+        user.UpdatedAt = utcNow;
+
+        var activeRefreshTokens = await _dbContext.RefreshTokens
+            .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > utcNow)
+            .ToListAsync(cancellationToken);
+
+        foreach (var refreshToken in activeRefreshTokens)
+        {
+            refreshToken.RevokedAt = utcNow;
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("User {UserId} blocked by admin.", user.Id);
+        _logger.LogInformation(
+            "User {UserId} blocked by admin and {RefreshTokenCount} active refresh tokens were revoked.",
+            user.Id,
+            activeRefreshTokens.Count);
     }
 
     public async Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default)

@@ -69,11 +69,13 @@ Registration does not automatically log the user in. Sara must verify the user f
 Login checks:
 
 - email exists
+- user is not soft deleted
 - password is valid
 - user is not `Blocked`
 - user is `Verified`
 
 Blocked and unverified users cannot log in or refresh tokens.
+Soft-deleted users cannot log in, refresh tokens, or access `/api/auth/me`.
 
 ## Refresh Token Flow
 
@@ -87,11 +89,14 @@ Refresh token rotation is enabled:
 1. Client sends the current refresh token to `POST /api/auth/refresh-token`.
 2. API verifies that the token exists, is not expired, and is not revoked.
 3. API verifies that the user is still `Verified` and not `Blocked`.
-4. The old refresh token is revoked.
-5. A new access token and a new refresh token are issued.
-6. The old token stores `ReplacedByToken` for traceability.
+4. API rejects refresh for soft-deleted users.
+5. If a revoked refresh token is reused, the API logs a warning and revokes remaining active refresh tokens for that user.
+6. The old refresh token is revoked.
+7. A new access token and a new refresh token are issued.
+8. The old token stores `ReplacedByToken` for traceability.
 
 Logout calls `POST /api/auth/logout` and revokes the submitted refresh token if it is active.
+Blocking a user also revokes all currently active refresh tokens for that user.
 
 ## Authorization
 
@@ -111,8 +116,12 @@ JWT tokens include:
 
 - user id
 - email
+- full name
 - role
 - user status
+- JWT ID (`jti`)
+
+JWT bearer validation also re-checks the current database state of the user on each protected request, so blocked, unverified, and soft-deleted users cannot continue using stale access tokens.
 
 ## Database Foundation
 

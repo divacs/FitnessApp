@@ -85,7 +85,7 @@ public class AuthService : IAuthService
 
         var user = await _userManager.FindByEmailAsync(request.Email);
 
-        if (user is null)
+        if (user is null || user.IsDeleted)
         {
             throw new BadRequestException("Email ili lozinka nisu ispravni.");
         }
@@ -106,6 +106,8 @@ public class AuthService : IAuthService
         RefreshTokenRequest request,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var refreshToken = await _dbContext.RefreshTokens
             .Include(x => x.User)
             .FirstOrDefaultAsync(x => x.Token == request.RefreshToken, cancellationToken);
@@ -122,10 +124,16 @@ public class AuthService : IAuthService
 
         if (refreshToken.IsRevoked)
         {
-            throw new BadRequestException("Refresh token je opozvan.");
+            _logger.LogWarning(
+                "Rejected reused or revoked refresh token for user {UserId}.",
+                refreshToken.UserId);
+
+            await RevokeActiveRefreshTokensAsync(refreshToken.UserId, cancellationToken);
+
+            throw new BadRequestException("Refresh token je već iskorišćen ili opozvan.");
         }
 
-        EnsureUserCanAuthenticate(refreshToken.User);
+        await EnsureUserCanRefreshAsync(refreshToken.User, cancellationToken);
 
         var newRefreshToken = _tokenService.GenerateRefreshToken();
         refreshToken.RevokedAt = DateTime.UtcNow;
@@ -162,7 +170,9 @@ public class AuthService : IAuthService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == userId && !x.IsDeleted, cancellationToken);
 
         if (user is null)
         {
@@ -229,6 +239,58 @@ public class AuthService : IAuthService
         return roles.FirstOrDefault() ?? string.Empty;
     }
 
+    private async Task EnsureUserCanRefreshAsync(
+        ApplicationUser user,
+        CancellationToken cancellationToken)
+    {
+        if (user.IsDeleted)
+        {
+            await RevokeActiveRefreshTokensAsync(user.Id, cancellationToken);
+            throw new ForbiddenException("Korisnički nalog više nije dostupan.");
+        }
+
+        if (user.UserStatus == UserStatus.Blocked)
+        {
+            await RevokeActiveRefreshTokensAsync(user.Id, cancellationToken);
+            throw new ForbiddenException("Korisnik je blokiran.");
+        }
+
+        if (user.UserStatus != UserStatus.Verified)
+        {
+            await RevokeActiveRefreshTokensAsync(user.Id, cancellationToken);
+            throw new ForbiddenException("Korisnik još nije verifikovan.");
+        }
+    }
+
+    private async Task<int> RevokeActiveRefreshTokensAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var utcNow = DateTime.UtcNow;
+        var activeTokens = await _dbContext.RefreshTokens
+            .Where(x => x.UserId == userId && x.RevokedAt == null && x.ExpiresAt > utcNow)
+            .ToListAsync(cancellationToken);
+
+        if (activeTokens.Count == 0)
+        {
+            return 0;
+        }
+
+        foreach (var activeToken in activeTokens)
+        {
+            activeToken.RevokedAt = utcNow;
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Revoked {RefreshTokenCount} active refresh tokens for user {UserId}.",
+            activeTokens.Count,
+            userId);
+
+        return activeTokens.Count;
+    }
+
     private static void EnsureUserCanAuthenticate(ApplicationUser user)
     {
         if (user.UserStatus == UserStatus.Blocked)
@@ -241,5 +303,4 @@ public class AuthService : IAuthService
             throw new ForbiddenException("Korisnik još nije verifikovan.");
         }
     }
-
 }

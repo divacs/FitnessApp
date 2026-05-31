@@ -75,8 +75,11 @@ public class TokenService : ITokenService
 
         return new List<Claim>
         {
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
             new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
             new(ClaimTypes.Email, user.Email ?? string.Empty),
             new(ClaimTypes.Role, role),
             new(AuthClaimConstants.UserStatus, user.UserStatus.ToString())

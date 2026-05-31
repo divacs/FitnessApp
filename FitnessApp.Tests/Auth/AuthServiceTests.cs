@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 
 namespace FitnessApp.Tests.Auth;
 
@@ -40,6 +42,54 @@ public class AuthServiceTests
         var storedToken = await dbContext.RefreshTokens.SingleAsync();
         storedToken.Token.Should().Be(response.RefreshToken);
         storedToken.IsActive.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LoginAsync_WhenUserIsSoftDeleted_ShouldRejectAuthentication()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var authService = services.GetRequiredService<IAuthService>();
+
+        user.IsDeleted = true;
+        await userManager.UpdateAsync(user);
+
+        var act = () => authService.LoginAsync(new LoginRequest
+        {
+            Email = user.Email!,
+            Password = Password
+        });
+
+        await act.Should().ThrowAsync<BadRequestException>()
+            .WithMessage("Email ili lozinka nisu ispravni.");
+    }
+
+    [Fact]
+    public async Task LoginAsync_ShouldIssueJwtWithExpectedClaims()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var authService = services.GetRequiredService<IAuthService>();
+
+        var response = await authService.LoginAsync(new LoginRequest
+        {
+            Email = user.Email!,
+            Password = Password
+        });
+
+        var token = new JwtSecurityTokenHandler().ReadJwtToken(response.AccessToken);
+
+        token.Issuer.Should().Be("FitnessApp.Tests");
+        token.Audiences.Should().Contain("FitnessApp.Tests");
+        token.Claims.Should().Contain(x => x.Type == JwtRegisteredClaimNames.Jti && !string.IsNullOrWhiteSpace(x.Value));
+        token.Claims.Should().Contain(x => x.Type == JwtRegisteredClaimNames.Sub && x.Value == user.Id.ToString());
+        token.Claims.Should().Contain(x => x.Type == JwtRegisteredClaimNames.Email && x.Value == user.Email);
+        token.Claims.Should().Contain(x => x.Type == ClaimTypes.NameIdentifier && x.Value == user.Id.ToString());
+        token.Claims.Should().Contain(x => x.Type == ClaimTypes.Email && x.Value == user.Email);
+        token.Claims.Should().Contain(x => x.Type == ClaimTypes.Name && x.Value == user.FullName);
+        token.Claims.Should().Contain(x => x.Type == ClaimTypes.Role && x.Value == RoleConstants.User);
+        token.Claims.Should().Contain(x => x.Type == AuthClaimConstants.UserStatus && x.Value == UserStatus.Verified.ToString());
     }
 
     [Fact]
@@ -72,18 +122,19 @@ public class AuthServiceTests
     }
 
     [Fact]
-    public async Task RefreshTokenAsync_WhenTokenIsRevoked_ShouldRejectReuse()
+    public async Task RefreshTokenAsync_WhenTokenIsRevoked_ShouldRejectReuseAndRevokeTokenFamily()
     {
         var services = CreateServiceProvider();
         var user = await CreateUserAsync(services, UserStatus.Verified);
         var authService = services.GetRequiredService<IAuthService>();
+        var dbContext = services.GetRequiredService<AppDbContext>();
         var loginResponse = await authService.LoginAsync(new LoginRequest
         {
             Email = user.Email!,
             Password = Password
         });
 
-        await authService.RefreshTokenAsync(new RefreshTokenRequest
+        var rotatedResponse = await authService.RefreshTokenAsync(new RefreshTokenRequest
         {
             RefreshToken = loginResponse.RefreshToken
         });
@@ -94,18 +145,24 @@ public class AuthServiceTests
         });
 
         await act.Should().ThrowAsync<BadRequestException>()
-            .WithMessage("Refresh token je opozvan.");
+            .WithMessage("Refresh token je već iskorišćen ili opozvan.");
+
+        var replacementToken = await dbContext.RefreshTokens.SingleAsync(x => x.Token == rotatedResponse.RefreshToken);
+        replacementToken.IsRevoked.Should().BeTrue();
     }
 
     [Theory]
-    [InlineData(UserStatus.Blocked)]
-    [InlineData(UserStatus.Unverified)]
-    public async Task RefreshTokenAsync_WhenUserCannotAuthenticate_ShouldThrowForbidden(UserStatus userStatus)
+    [InlineData(UserStatus.Blocked, "Korisnik je blokiran.")]
+    [InlineData(UserStatus.Unverified, "Korisnik još nije verifikovan.")]
+    public async Task RefreshTokenAsync_WhenUserCannotAuthenticate_ShouldThrowForbiddenAndRevokeActiveTokens(
+        UserStatus userStatus,
+        string expectedMessage)
     {
         var services = CreateServiceProvider();
         var user = await CreateUserAsync(services, UserStatus.Verified);
         var authService = services.GetRequiredService<IAuthService>();
         var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var dbContext = services.GetRequiredService<AppDbContext>();
         var loginResponse = await authService.LoginAsync(new LoginRequest
         {
             Email = user.Email!,
@@ -120,7 +177,62 @@ public class AuthServiceTests
             RefreshToken = loginResponse.RefreshToken
         });
 
-        await act.Should().ThrowAsync<ForbiddenException>();
+        await act.Should().ThrowAsync<ForbiddenException>()
+            .WithMessage(expectedMessage);
+
+        var storedToken = await dbContext.RefreshTokens.SingleAsync(x => x.Token == loginResponse.RefreshToken);
+        storedToken.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_WhenUserIsSoftDeleted_ShouldThrowForbiddenAndRevokeActiveTokens()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var authService = services.GetRequiredService<IAuthService>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var loginResponse = await authService.LoginAsync(new LoginRequest
+        {
+            Email = user.Email!,
+            Password = Password
+        });
+
+        user.IsDeleted = true;
+        await userManager.UpdateAsync(user);
+
+        var act = () => authService.RefreshTokenAsync(new RefreshTokenRequest
+        {
+            RefreshToken = loginResponse.RefreshToken
+        });
+
+        await act.Should().ThrowAsync<ForbiddenException>()
+            .WithMessage("Korisnički nalog više nije dostupan.");
+
+        var storedToken = await dbContext.RefreshTokens.SingleAsync(x => x.Token == loginResponse.RefreshToken);
+        storedToken.IsRevoked.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RevokeTokenAsync_WhenTokenIsActive_ShouldRevokeIt()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var authService = services.GetRequiredService<IAuthService>();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var loginResponse = await authService.LoginAsync(new LoginRequest
+        {
+            Email = user.Email!,
+            Password = Password
+        });
+
+        await authService.RevokeTokenAsync(new RevokeTokenRequest
+        {
+            RefreshToken = loginResponse.RefreshToken
+        });
+
+        var storedToken = await dbContext.RefreshTokens.SingleAsync(x => x.Token == loginResponse.RefreshToken);
+        storedToken.IsRevoked.Should().BeTrue();
     }
 
     private static ServiceProvider CreateServiceProvider()
