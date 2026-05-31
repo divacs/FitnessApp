@@ -41,7 +41,11 @@ public static class ConfigurationExtensions
         services.AddOptions<AppSettings>()
             .Bind(configuration.GetSection(AppSettings.SectionName))
             .Validate(settings => !string.IsNullOrWhiteSpace(settings.FrontendUrl), "AppSettings:FrontendUrl is required.")
-            .Validate(settings => Uri.TryCreate(settings.FrontendUrl, UriKind.Absolute, out _), "AppSettings:FrontendUrl must be a valid absolute URL.")
+            .Validate(
+                settings => settings.FrontendUrl
+                    .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .All(origin => Uri.TryCreate(origin, UriKind.Absolute, out _)),
+                "AppSettings:FrontendUrl must contain valid absolute URL values.")
             .Validate(settings => settings.CancellationDeadlineHours >= 0, "AppSettings:CancellationDeadlineHours cannot be negative.")
             .Validate(settings => settings.DefaultTrainingCapacity > 0, "AppSettings:DefaultTrainingCapacity must be greater than zero.")
             .Validate(settings => settings.AutoMarkAttendanceDelayMinutes >= 0, "AppSettings:AutoMarkAttendanceDelayMinutes cannot be negative.");

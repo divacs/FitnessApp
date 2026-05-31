@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Net.Http.Headers;
 using Microsoft.OpenApi.Models;
 using System.Security.Claims;
 using System.Text;
@@ -167,14 +168,30 @@ public static class ServiceCollectionExtensions
             throw new InvalidOperationException("AppSettings:FrontendUrl is required for CORS configuration.");
         }
 
+        var allowedOrigins = frontendUrl
+            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (allowedOrigins.Length == 0)
+        {
+            throw new InvalidOperationException("AppSettings:FrontendUrl must contain at least one valid origin.");
+        }
+
         services.AddCors(options =>
         {
             options.AddPolicy(FrontendCorsPolicy, policy =>
             {
                 policy
-                    .WithOrigins(frontendUrl)
-                    .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .WithOrigins(allowedOrigins)
+                    .WithHeaders(
+                        HeaderNames.Authorization,
+                        HeaderNames.ContentType,
+                        HeaderNames.Accept,
+                        HeaderNames.Origin,
+                        HeaderNames.XRequestedWith)
+                    .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                    .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
             });
         });
 
