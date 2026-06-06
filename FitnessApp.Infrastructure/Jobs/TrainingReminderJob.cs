@@ -48,7 +48,18 @@ public class TrainingReminderJob
 
             foreach (var reservation in reservations)
             {
-                await SendReminderAsync(reservation);
+                try
+                {
+                    await SendReminderAsync(reservation);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Training reminder failed for reservation {ReservationId} and user {UserId}. Continuing with next reservation.",
+                        reservation.Id,
+                        reservation.UserId);
+                }
             }
 
             _logger.LogInformation(

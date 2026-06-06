@@ -48,7 +48,18 @@ public class MembershipExpirationReminderJob
 
             foreach (var balance in balances)
             {
-                await SendReminderAsync(balance);
+                try
+                {
+                    await SendReminderAsync(balance);
+                }
+                catch (Exception exception)
+                {
+                    _logger.LogError(
+                        exception,
+                        "Membership expiration reminder failed for balance {BalanceId} and user {UserId}. Continuing with next balance.",
+                        balance.Id,
+                        balance.UserId);
+                }
             }
 
             _logger.LogInformation(

@@ -72,6 +72,16 @@ public class AutoAttendanceService : IAutoAttendanceService
                     reservation.Id,
                     reservation.UserId);
             }
+            catch (Exception exception)
+            {
+                await transaction.RollbackAsync(cancellationToken);
+
+                _logger.LogError(
+                    exception,
+                    "Automatic attendance failed for reservation {ReservationId} and user {UserId}. Continuing with next reservation.",
+                    reservation.Id,
+                    reservation.UserId);
+            }
         }
     }
 }
