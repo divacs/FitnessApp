@@ -10,6 +10,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FitnessApp.Infrastructure.Services;
 
+/// <summary>
+/// Implements package creation, single-session management, carry-over, and balance consumption rules.
+/// </summary>
 public class BalanceService : IBalanceService
 {
     private const int MaxCarriedOverSessions = 2;
@@ -178,6 +181,7 @@ public class BalanceService : IBalanceService
             return;
         }
 
+        // Carry-over is limited to the immediately previous Package12 and can transfer at most two unused sessions.
         var carriedOverSessions = Math.Min(previousPackage.RemainingSessions, MaxCarriedOverSessions);
 
         newPackage.TotalSessions += carriedOverSessions;
@@ -212,6 +216,7 @@ public class BalanceService : IBalanceService
             .ThenByDescending(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        // ATTENDED and NO_SHOW consume from an active monthly package first, then fall back to single sessions.
         balance ??= await GetAvailableSingleSessionsQuery(userId)
             .OrderBy(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);

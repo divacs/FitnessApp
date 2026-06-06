@@ -2,6 +2,9 @@ using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Auth.DTOs;
 
+/// <summary>
+/// Represents the authenticated session payload returned after login or refresh-token rotation.
+/// </summary>
 public class AuthResponse
 {
     public string AccessToken { get; init; } = string.Empty;

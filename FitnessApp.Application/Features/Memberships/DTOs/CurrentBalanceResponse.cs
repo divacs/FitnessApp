@@ -1,5 +1,8 @@
 namespace FitnessApp.Application.Features.Memberships.DTOs;
 
+/// <summary>
+/// Represents the current usable membership package and session totals for a user.
+/// </summary>
 public class CurrentBalanceResponse
 {
     public UserTrainingBalanceResponse? ActivePackage { get; init; }

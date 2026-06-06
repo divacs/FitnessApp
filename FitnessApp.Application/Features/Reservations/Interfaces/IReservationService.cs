@@ -4,8 +4,14 @@ using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Reservations.Interfaces;
 
+/// <summary>
+/// Handles reservation creation, cancellation, attendance, no-show, and reservation queries.
+/// </summary>
 public interface IReservationService
 {
+    /// <summary>
+    /// Creates a reservation without requiring an active membership or available balance.
+    /// </summary>
     Task<ReservationResponse> ReserveAsync(
         Guid userId,
         CreateReservationRequest request,
@@ -39,11 +45,17 @@ public interface IReservationService
         Guid reservationId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Marks a reserved training as attended and consumes one session.
+    /// </summary>
     Task<ReservationResponse> MarkAsAttendedAsync(
         Guid reservationId,
         Guid adminId,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Marks a reserved training as no-show and consumes one session.
+    /// </summary>
     Task<ReservationResponse> MarkAsNoShowAsync(
         Guid reservationId,
         Guid adminId,

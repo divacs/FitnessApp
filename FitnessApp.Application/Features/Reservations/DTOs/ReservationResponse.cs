@@ -2,6 +2,9 @@ using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Reservations.DTOs;
 
+/// <summary>
+/// Represents a reservation with training, status, and attendance timeline data.
+/// </summary>
 public class ReservationResponse
 {
     public Guid Id { get; init; }

@@ -14,6 +14,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FitnessApp.Infrastructure.Services;
 
+/// <summary>
+/// Implements reservation rules, cancellation deadlines, attendance, and no-show workflows.
+/// </summary>
 public class ReservationService : IReservationService
 {
     private const int MaxUpcomingReservations = 2;
@@ -67,6 +70,7 @@ public class ReservationService : IReservationService
             throw new NotFoundException("Trening nije pronađen.");
         }
 
+        // Reservation intentionally ignores membership and balance state because payment can happen around the training itself.
         EnsureTrainingCanBeReserved(training);
         await EnsureReservationLimitsAsync(userId, training.Id, cancellationToken);
 
@@ -124,6 +128,7 @@ public class ReservationService : IReservationService
 
         try
         {
+            // A session is consumed only when attendance is confirmed, never at reservation-creation time.
             await _balanceService.ConsumeSessionAsync(reservation.UserId, cancellationToken);
         }
         catch (ConflictException)
@@ -178,6 +183,7 @@ public class ReservationService : IReservationService
 
         try
         {
+            // NO_SHOW follows the same consumption boundary as ATTENDED: the balance check happens only when the status changes.
             await _balanceService.ConsumeSessionAsync(reservation.UserId, cancellationToken);
         }
         catch (ConflictException)

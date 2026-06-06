@@ -9,6 +9,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FitnessApp.Infrastructure.Services;
 
+/// <summary>
+/// Applies automatic attendance to finished reserved trainings after the configured grace period.
+/// </summary>
 public class AutoAttendanceService : IAutoAttendanceService
 {
     private readonly AppDbContext _dbContext;
@@ -34,6 +37,7 @@ public class AutoAttendanceService : IAutoAttendanceService
         var autoMarkDelayMinutes = await _settingsService.GetAutoMarkAttendanceDelayMinutesAsync(cancellationToken);
         var eligibleTrainingEndTime = utcNow.AddMinutes(-autoMarkDelayMinutes);
 
+        // Auto attendance upgrades only finished RESERVED records to ATTENDED and never creates NO_SHOW automatically.
         var reservations = await _dbContext.Reservations
             .Include(reservation => reservation.TrainingSession)
             .Where(reservation =>
@@ -50,6 +54,7 @@ public class AutoAttendanceService : IAutoAttendanceService
             {
                 await _balanceService.ConsumeSessionAsync(reservation.UserId, cancellationToken);
 
+                // Attendance remains the billing boundary, so balance is checked only when the reservation is finalized.
                 reservation.Status = ReservationStatus.Attended;
                 reservation.AttendedAt = utcNow;
                 reservation.AutoMarkedAttended = true;

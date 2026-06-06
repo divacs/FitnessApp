@@ -12,6 +12,9 @@ using Microsoft.Extensions.Logging;
 
 namespace FitnessApp.Infrastructure.Services;
 
+/// <summary>
+/// Implements registration, login, refresh-token rotation, logout, and current-user retrieval.
+/// </summary>
 public class AuthService : IAuthService
 {
     private readonly UserManager<ApplicationUser> _userManager;
@@ -124,6 +127,7 @@ public class AuthService : IAuthService
 
         if (refreshToken.IsRevoked)
         {
+            // Reuse of an already rotated token is treated as suspicious and invalidates the user's remaining active refresh tokens.
             _logger.LogWarning(
                 "Rejected reused or revoked refresh token for user {UserId}.",
                 refreshToken.UserId);
@@ -135,6 +139,7 @@ public class AuthService : IAuthService
 
         await EnsureUserCanRefreshAsync(refreshToken.User, cancellationToken);
 
+        // Rotation always revokes the old token and persists a newly issued replacement token.
         var newRefreshToken = _tokenService.GenerateRefreshToken();
         refreshToken.RevokedAt = DateTime.UtcNow;
         refreshToken.ReplacedByToken = newRefreshToken;

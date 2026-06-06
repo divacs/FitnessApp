@@ -2,6 +2,9 @@ using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Memberships.DTOs;
 
+/// <summary>
+/// Represents a persisted package or single-session balance entry.
+/// </summary>
 public class UserTrainingBalanceResponse
 {
     public Guid Id { get; init; }
