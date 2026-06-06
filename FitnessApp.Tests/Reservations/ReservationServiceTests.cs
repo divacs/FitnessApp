@@ -570,6 +570,26 @@ public class ReservationServiceTests
     }
 
     [Fact]
+    public async Task MarkAsNoShowAsync_WhenUserHasNoSessions_ShouldThrowPaymentRequiredMessage()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(-2), capacity: 10);
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        var act = () => reservationService.MarkAsNoShowAsync(reservation.Id, Guid.NewGuid());
+
+        await act.Should().ThrowAsync<ConflictException>()
+            .WithMessage("Korisnik nema dostupnih termina. Prvo evidentirajte uplatu.");
+    }
+
+    [Fact]
     public async Task MarkAsNoShowAsync_WhenSecondConsecutiveNoShowAndNoSessionsRemain_ShouldBlockUser()
     {
         var services = CreateServiceProvider();

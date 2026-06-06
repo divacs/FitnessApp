@@ -93,6 +93,45 @@ public class AutoAttendanceServiceTests
         updatedBalance.RemainingSessions.Should().Be(1);
     }
 
+    [Fact]
+    public async Task AutoMarkAttendanceAsync_ShouldProcessOnlyReservedReservations_AndNeverMarkNoShow()
+    {
+        var services = CreateServiceProvider(autoMarkAttendanceDelayMinutes: 60);
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var autoAttendanceService = services.GetRequiredService<IAutoAttendanceService>();
+        var user = CreateUser();
+        var reservedTraining = CreateTraining(DateTime.UtcNow.AddHours(-3));
+        var attendedTraining = CreateTraining(DateTime.UtcNow.AddHours(-4));
+        var noShowTraining = CreateTraining(DateTime.UtcNow.AddHours(-5));
+        var reservedReservation = CreateReservation(user.Id, reservedTraining.Id);
+        var attendedReservation = CreateReservation(user.Id, attendedTraining.Id);
+        attendedReservation.Status = ReservationStatus.Attended;
+        attendedReservation.AttendedAt = DateTime.UtcNow.AddHours(-3);
+        var noShowReservation = CreateReservation(user.Id, noShowTraining.Id);
+        noShowReservation.Status = ReservationStatus.NoShow;
+        noShowReservation.NoShowAt = DateTime.UtcNow.AddHours(-4);
+        var balance = CreateBalance(user.Id, remainingSessions: 1);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.AddRange(reservedTraining, attendedTraining, noShowTraining);
+        dbContext.Reservations.AddRange(reservedReservation, attendedReservation, noShowReservation);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        await autoAttendanceService.AutoMarkAttendanceAsync();
+
+        var updatedReservedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservedReservation.Id);
+        var updatedAttendedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == attendedReservation.Id);
+        var updatedNoShowReservation = await dbContext.Reservations.SingleAsync(x => x.Id == noShowReservation.Id);
+
+        updatedReservedReservation.Status.Should().Be(ReservationStatus.Attended);
+        updatedReservedReservation.NoShowAt.Should().BeNull();
+        updatedAttendedReservation.Status.Should().Be(ReservationStatus.Attended);
+        updatedAttendedReservation.AutoMarkedAttended.Should().BeFalse();
+        updatedNoShowReservation.Status.Should().Be(ReservationStatus.NoShow);
+        updatedNoShowReservation.AutoMarkedAttended.Should().BeFalse();
+        updatedNoShowReservation.NoShowAt.Should().NotBeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider(int autoMarkAttendanceDelayMinutes)
     {
         var services = new ServiceCollection();
