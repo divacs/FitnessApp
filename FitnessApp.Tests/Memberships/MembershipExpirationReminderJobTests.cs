@@ -90,6 +90,32 @@ public class MembershipExpirationReminderJobTests
         emailService.MembershipExpirationEmails.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenSendingOneReminderFails_ShouldContinueProcessingOtherBalances()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+        var job = services.GetRequiredService<MembershipExpirationReminderJob>();
+        var failingUser = CreateUser();
+        var successfulUser = CreateUser();
+        var failingBalance = CreateBalance(failingUser.Id, PurchaseType.Package12, DateTime.UtcNow.AddDays(3).Date.AddHours(10));
+        var successfulBalance = CreateBalance(successfulUser.Id, PurchaseType.Package6, DateTime.UtcNow.AddDays(3).Date.AddHours(12));
+        emailService.FailForEmails.Add(failingUser.Email!);
+        dbContext.Users.AddRange(failingUser, successfulUser);
+        dbContext.UserTrainingBalances.AddRange(failingBalance, successfulBalance);
+        await dbContext.SaveChangesAsync();
+
+        await job.ExecuteAsync();
+
+        emailService.MembershipExpirationEmails.Should().ContainSingle(successfulUser.Email);
+
+        var updatedFailingBalance = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == failingBalance.Id);
+        var updatedSuccessfulBalance = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == successfulBalance.Id);
+        updatedFailingBalance.ExpirationReminderSentAt.Should().BeNull();
+        updatedSuccessfulBalance.ExpirationReminderSentAt.Should().NotBeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
@@ -147,6 +173,7 @@ public class MembershipExpirationReminderJobTests
     private sealed class FakeEmailService : IEmailService
     {
         public List<string> MembershipExpirationEmails { get; } = new();
+        public HashSet<string> FailForEmails { get; } = new();
 
         public Task SendAsync(
             string toEmail,
@@ -179,6 +206,11 @@ public class MembershipExpirationReminderJobTests
             string firstName,
             CancellationToken cancellationToken = default)
         {
+            if (FailForEmails.Contains(toEmail))
+            {
+                throw new InvalidOperationException("Simulated email failure.");
+            }
+
             MembershipExpirationEmails.Add(toEmail);
             return Task.CompletedTask;
         }

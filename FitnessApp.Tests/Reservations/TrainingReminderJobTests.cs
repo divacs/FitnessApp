@@ -102,6 +102,35 @@ public class TrainingReminderJobTests
         emailService.SentEmails.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ExecuteAsync_WhenSendingOneReminderFails_ShouldContinueProcessingOtherReservations()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+        var job = services.GetRequiredService<TrainingReminderJob>();
+        var failingUser = CreateUser();
+        var successfulUser = CreateUser();
+        var failingTraining = CreateTraining(DateTime.UtcNow.AddHours(24).AddMinutes(5));
+        var successfulTraining = CreateTraining(DateTime.UtcNow.AddHours(24).AddMinutes(10));
+        var failingReservation = CreateReservation(failingUser.Id, failingTraining.Id);
+        var successfulReservation = CreateReservation(successfulUser.Id, successfulTraining.Id);
+        emailService.FailForEmails.Add(failingUser.Email!);
+        dbContext.Users.AddRange(failingUser, successfulUser);
+        dbContext.TrainingSessions.AddRange(failingTraining, successfulTraining);
+        dbContext.Reservations.AddRange(failingReservation, successfulReservation);
+        await dbContext.SaveChangesAsync();
+
+        await job.ExecuteAsync();
+
+        emailService.SentEmails.Should().ContainSingle(successfulUser.Email);
+
+        var updatedFailingReservation = await dbContext.Reservations.SingleAsync(x => x.Id == failingReservation.Id);
+        var updatedSuccessfulReservation = await dbContext.Reservations.SingleAsync(x => x.Id == successfulReservation.Id);
+        updatedFailingReservation.ReminderSentAt.Should().BeNull();
+        updatedSuccessfulReservation.ReminderSentAt.Should().NotBeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
@@ -168,6 +197,7 @@ public class TrainingReminderJobTests
     private sealed class FakeEmailService : IEmailService
     {
         public List<string> SentEmails { get; } = new();
+        public HashSet<string> FailForEmails { get; } = new();
 
         public Task SendAsync(
             string toEmail,
@@ -176,6 +206,11 @@ public class TrainingReminderJobTests
             string plainTextBody,
             CancellationToken cancellationToken = default)
         {
+            if (FailForEmails.Contains(toEmail))
+            {
+                throw new InvalidOperationException("Simulated email failure.");
+            }
+
             SentEmails.Add(toEmail);
             return Task.CompletedTask;
         }

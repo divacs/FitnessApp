@@ -1,3 +1,4 @@
+using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Reservations.Interfaces;
 using FitnessApp.Application.Features.Settings.Interfaces;
@@ -132,7 +133,38 @@ public class AutoAttendanceServiceTests
         updatedNoShowReservation.NoShowAt.Should().NotBeNull();
     }
 
-    private static ServiceProvider CreateServiceProvider(int autoMarkAttendanceDelayMinutes)
+    [Fact]
+    public async Task AutoMarkAttendanceAsync_WhenOneReservationFails_ShouldContinueProcessingOtherReservedReservations()
+    {
+        var failingUserId = Guid.NewGuid();
+        var fakeBalanceService = new FakeBalanceService();
+        fakeBalanceService.FailForUserIds.Add(failingUserId);
+        var services = CreateServiceProvider(autoMarkAttendanceDelayMinutes: 60, balanceService: fakeBalanceService);
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var autoAttendanceService = services.GetRequiredService<IAutoAttendanceService>();
+        var failingUser = CreateUser(failingUserId);
+        var successfulUser = CreateUser();
+        var failingTraining = CreateTraining(DateTime.UtcNow.AddHours(-3));
+        var successfulTraining = CreateTraining(DateTime.UtcNow.AddHours(-4));
+        var failingReservation = CreateReservation(failingUser.Id, failingTraining.Id);
+        var successfulReservation = CreateReservation(successfulUser.Id, successfulTraining.Id);
+        dbContext.Users.AddRange(failingUser, successfulUser);
+        dbContext.TrainingSessions.AddRange(failingTraining, successfulTraining);
+        dbContext.Reservations.AddRange(failingReservation, successfulReservation);
+        await dbContext.SaveChangesAsync();
+
+        await autoAttendanceService.AutoMarkAttendanceAsync();
+
+        var updatedFailingReservation = await dbContext.Reservations.SingleAsync(x => x.Id == failingReservation.Id);
+        var updatedSuccessfulReservation = await dbContext.Reservations.SingleAsync(x => x.Id == successfulReservation.Id);
+        updatedFailingReservation.Status.Should().Be(ReservationStatus.Reserved);
+        updatedSuccessfulReservation.Status.Should().Be(ReservationStatus.Attended);
+        fakeBalanceService.ConsumedUserIds.Should().Contain(successfulUser.Id);
+    }
+
+    private static ServiceProvider CreateServiceProvider(
+        int autoMarkAttendanceDelayMinutes,
+        IBalanceService? balanceService = null)
     {
         var services = new ServiceCollection();
 
@@ -149,20 +181,29 @@ public class AutoAttendanceServiceTests
             options.UseInMemoryDatabase(Guid.NewGuid().ToString());
             options.ConfigureWarnings(warnings => warnings.Ignore(InMemoryEventId.TransactionIgnoredWarning));
         });
-        services.AddScoped<IBalanceService, BalanceService>();
+
+        if (balanceService is null)
+        {
+            services.AddScoped<IBalanceService, BalanceService>();
+        }
+        else
+        {
+            services.AddSingleton(balanceService);
+        }
+
         services.AddScoped<ISettingsService, SettingsService>();
         services.AddScoped<IAutoAttendanceService, AutoAttendanceService>();
 
         return services.BuildServiceProvider();
     }
 
-    private static ApplicationUser CreateUser()
+    private static ApplicationUser CreateUser(Guid? userId = null)
     {
         var email = $"user-{Guid.NewGuid():N}@example.com";
 
         return new ApplicationUser
         {
-            Id = Guid.NewGuid(),
+            Id = userId ?? Guid.NewGuid(),
             UserName = email,
             Email = email,
             FirstName = "Test",
@@ -218,5 +259,32 @@ public class AutoAttendanceServiceTests
             IsExpired = false,
             CreatedAt = DateTime.UtcNow.AddDays(-1)
         };
+    }
+
+    private sealed class FakeBalanceService : IBalanceService
+    {
+        public HashSet<Guid> FailForUserIds { get; } = new();
+        public List<Guid> ConsumedUserIds { get; } = new();
+
+        public Task<CurrentBalanceResponse> GetCurrentBalanceAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<BalanceHistoryResponse>> GetBalanceHistoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<UserTrainingBalanceResponse>> GetUserBalancesAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<UserTrainingBalanceResponse> CreatePackage12Async(Guid userId, CreatePackage12Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<UserTrainingBalanceResponse> CreatePackage6Async(Guid userId, CreatePackage6Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<UserTrainingBalanceResponse> AddSingleSessionsAsync(Guid userId, AddSingleSessionsRequest request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task ApplyCarryOverAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<UserTrainingBalanceResponse> UpdateBalanceAsync(Guid balanceId, UpdateBalanceRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteBalanceAsync(Guid balanceId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public Task ConsumeSessionAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            if (FailForUserIds.Contains(userId))
+            {
+                throw new InvalidOperationException("Simulated balance failure.");
+            }
+
+            ConsumedUserIds.Add(userId);
+            return Task.CompletedTask;
+        }
     }
 }
