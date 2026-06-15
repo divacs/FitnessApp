@@ -1,0 +1,50 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: fitnessapp-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: "Developer"
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+  fitnessapp-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fitnessapp-api
+    depends_on:
+      - sqlserver
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: 8080
+      ConnectionStrings__DefaultConnection: Server=sqlserver,1433;Database=FitnessAppDB;User Id=sa;Password=${SQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+      JwtSettings__Issuer: ${JWT_ISSUER}
+      JwtSettings__Audience: ${JWT_AUDIENCE}
+      JwtSettings__Secret: ${JWT_SECRET}
+      JwtSettings__ExpirationMinutes: ${JWT_EXPIRATION_MINUTES:-60}
+      JwtSettings__RefreshTokenExpirationDays: ${JWT_REFRESH_TOKEN_EXPIRATION_DAYS:-7}
+      EmailSettings__SmtpHost: ${EMAIL_SMTP_HOST}
+      EmailSettings__SmtpPort: ${EMAIL_SMTP_PORT:-587}
+      EmailSettings__SmtpUsername: ${EMAIL_SMTP_USERNAME}
+      EmailSettings__SmtpPassword: ${EMAIL_SMTP_PASSWORD}
+      EmailSettings__FromEmail: ${EMAIL_FROM_EMAIL}
+      EmailSettings__FromName: ${EMAIL_FROM_NAME:-Sara - FitnessApp}
+      HangfireSettings__DashboardPath: ${HANGFIRE_DASHBOARD_PATH:-/hangfire}
+      AdminSeed__Email: ${ADMIN_SEED_EMAIL}
+      AdminSeed__Password: ${ADMIN_SEED_PASSWORD}
+      AdminSeed__FirstName: ${ADMIN_SEED_FIRST_NAME:-Sara}
+      AdminSeed__LastName: ${ADMIN_SEED_LAST_NAME:-Admin}
+      AppSettings__ContactPhone: ${APP_CONTACT_PHONE}
+      AppSettings__FrontendUrl: ${APP_FRONTEND_URL}
+      AppSettings__CancellationDeadlineHours: ${APP_CANCELLATION_DEADLINE_HOURS:-12}
+      AppSettings__DefaultTrainingCapacity: ${APP_DEFAULT_TRAINING_CAPACITY:-12}
+      AppSettings__AutoMarkAttendanceDelayMinutes: ${APP_AUTO_MARK_ATTENDANCE_DELAY_MINUTES:-60}
+    ports:
+      - "8080:8080"
+
+volumes:
+  sqlserver-data:
