@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <ItemGroup>
     <ProjectReference Include="..\FitnessApp.Application\FitnessApp.Application.csproj" />
@@ -23,6 +23,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
+    <UserSecretsId>5746bd39-f774-4e64-8dad-6b4956fe561f</UserSecretsId>
   </PropertyGroup>
 
 </Project>
