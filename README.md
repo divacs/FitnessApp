@@ -39,7 +39,7 @@ Odgovornosti su namerno odvojene:
 - ASP.NET Identity
 - JWT Authentication
 - Entity Framework Core
-- SQL Server
+- PostgreSQL
 - MailKit
 - Hangfire
 - FluentValidation
@@ -52,7 +52,7 @@ Odgovornosti su namerno odvojene:
 1. Instaliraj:
 
 - .NET 8 SDK
-- SQL Server ili SQL Server Express
+- PostgreSQL
 
 2. Podesi connection string u `FitnessApp.API/appsettings.Development.json` ili preko user-secrets.
 
@@ -87,17 +87,17 @@ dotnet run --project FitnessApp.API
 
 - `FitnessApp.API/appsettings.Development.json`
 
-Primer SQL Server connection string-a:
+Primer PostgreSQL connection string-a:
 
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=DESKTOP-76BTM8E\\SQLEXPRESS;Database=FitnessAppDB;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=true"
+    "DefaultConnection": "Host=localhost;Port=5432;Database=fitnessappdb;Username=postgres;Password=postgres"
   }
 }
 ```
 
-Ako koristiš drugi SQL Server instance name ili bazu, menjaj samo `DefaultConnection`.
+Ako koristiš drugi PostgreSQL host, port, bazu ili kredencijale, menjaj samo `DefaultConnection`.
 
 ## User-Secrets Setup
 
@@ -112,7 +112,7 @@ dotnet user-secrets init --project FitnessApp.API
 Primer korisnih secret-a:
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=YOUR_SERVER;Database=FitnessAppDB;Trusted_Connection=True;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=true" --project FitnessApp.API
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=fitnessappdb;Username=postgres;Password=postgres" --project FitnessApp.API
 dotnet user-secrets set "JwtSettings:Issuer" "FitnessApp.Development" --project FitnessApp.API
 dotnet user-secrets set "JwtSettings:Audience" "FitnessApp.Client.Development" --project FitnessApp.API
 dotnet user-secrets set "JwtSettings:Secret" "your-long-development-secret-key-here" --project FitnessApp.API

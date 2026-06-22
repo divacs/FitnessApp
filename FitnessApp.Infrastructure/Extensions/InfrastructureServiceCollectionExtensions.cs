@@ -16,11 +16,12 @@ using FitnessApp.Infrastructure.Identity;
 using FitnessApp.Infrastructure.Persistence;
 using FitnessApp.Infrastructure.Services;
 using Hangfire;
-using Hangfire.SqlServer;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace FitnessApp.Infrastructure.Extensions;
 
@@ -39,19 +40,24 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            options.UseSqlServer(connectionString);
+            options.UseNpgsql(connectionString);
         });
 
         services.AddHangfire(configuration =>
         {
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            var dataSource = dataSourceBuilder.Build();
+
             configuration
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
                 .UseSimpleAssemblyNameTypeSerializer()
                 .UseRecommendedSerializerSettings()
-                .UseSqlServerStorage(connectionString, new SqlServerStorageOptions
-                {
-                    PrepareSchemaIfNecessary = true
-                });
+                .UsePostgreSqlStorage(
+                    options => options.UseNpgsqlConnection(connectionString),
+                    new PostgreSqlStorageOptions
+                    {
+                        PrepareSchemaIfNecessary = true
+                    });
         });
         services.AddHangfireServer();
 

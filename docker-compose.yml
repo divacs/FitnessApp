@@ -1,15 +1,15 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: fitnessapp-sqlserver
+  postgres:
+    image: postgres:16
+    container_name: fitnessapp-postgres
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_PID: "Developer"
-      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-fitnessappdb}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "1433:1433"
+      - "5432:5432"
     volumes:
-      - sqlserver-data:/var/opt/mssql
+      - postgres-data:/var/lib/postgresql/data
 
   fitnessapp-api:
     build:
@@ -17,11 +17,11 @@ services:
       dockerfile: Dockerfile
     container_name: fitnessapp-api
     depends_on:
-      - sqlserver
+      - postgres
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: 8080
-      ConnectionStrings__DefaultConnection: Server=sqlserver,1433;Database=FitnessAppDB;User Id=sa;Password=${SQL_SA_PASSWORD};Encrypt=True;TrustServerCertificate=True;MultipleActiveResultSets=true
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-fitnessappdb};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD}
       JwtSettings__Issuer: ${JWT_ISSUER}
       JwtSettings__Audience: ${JWT_AUDIENCE}
       JwtSettings__Secret: ${JWT_SECRET}
@@ -47,4 +47,4 @@ services:
       - "8080:8080"
 
 volumes:
-  sqlserver-data:
+  postgres-data:

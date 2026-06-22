@@ -93,7 +93,7 @@ Za Gmail SMTP:
 
 ## 5. Hangfire konfiguracija
 
-Hangfire je konfigurisan da koristi isti SQL Server connection string kao aplikacija.
+Hangfire je konfigurisan da koristi isti PostgreSQL connection string kao aplikacija.
 
 To znaci:
 
@@ -126,7 +126,7 @@ Pre deploy-a proveriti:
 
 - da connection string nije ostao prazan u `appsettings.Production.json`
 - da se realna vrednost isporucuje preko environment variable ili secret store-a
-- da SQL Server endpoint, credentials, encryption i sertifikati odgovaraju produkcionom okruzenju
+- da PostgreSQL endpoint, credentials i SSL podesavanja odgovaraju produkcionom okruzenju
 
 Preporuka za environment variable ime:
 

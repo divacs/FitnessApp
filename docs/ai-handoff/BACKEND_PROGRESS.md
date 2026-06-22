@@ -3,13 +3,13 @@
 Last completed task:
 
 ```text
-TASK 61A security hardening za auth flow
+TASK 80A migrate database provider from sql server to postgresql
 ```
 
 Next task:
 
 ```text
-TASK 62A add expired package maintenance job
+TBD
 ```
 
 Important note:
@@ -80,6 +80,7 @@ Important note:
 - TASK 59A: Serilog structured logging configuration
 - TASK 60A: validation pipeline cleanup
 - TASK 61A: security hardening for auth flow
+- TASK 80A: migrate database provider from sql server to postgresql
 
 ## Latest Commit Sequence
 
@@ -104,3 +105,10 @@ Implemented auth hardening without changing the existing architecture:
 - JWT access tokens now include `jti` and full-name claims in addition to existing identity claims
 - protected JWT requests now re-check the current user state from the database during token validation
 - auth and user tests were expanded for refresh rotation, revoke/logout, deleted-user, and claim coverage
+
+## TASK 80A Notes
+
+- EF Core provider migrated from SQL Server to PostgreSQL
+- Hangfire storage migrated from SQL Server storage to PostgreSQL storage
+- Docker Compose now uses a PostgreSQL container with persistent volume
+- SQL Server migrations were removed and replaced with a fresh PostgreSQL initial migration before production setup
