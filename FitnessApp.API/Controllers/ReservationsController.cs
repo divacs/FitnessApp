@@ -24,6 +24,20 @@ public class ReservationsController : ControllerBase
     }
 
     /// <summary>
+    /// Kreira novu rezervaciju za prijavljenog verifikovanog korisnika.
+    /// </summary>
+    [HttpPost]
+    public async Task<ActionResult<ApiResponse<ReservationResponse>>> CreateReservation(
+        CreateReservationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var reservation = await _reservationService.ReserveAsync(userId, request, cancellationToken);
+
+        return Ok(ApiResponse<ReservationResponse>.Success(reservation, "Rezervacija je uspešno kreirana."));
+    }
+
+    /// <summary>
     /// Otkazuje postojeću korisničku rezervaciju za trening.
     /// </summary>
     /// <param name="id">Identifikator rezervacije.</param>
