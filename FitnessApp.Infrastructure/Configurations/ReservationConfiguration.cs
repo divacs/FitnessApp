@@ -1,5 +1,4 @@
 using FitnessApp.Domain.Entities;
-using FitnessApp.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -30,8 +29,5 @@ public class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
 
         builder.HasIndex(x => new { x.UserId, x.TrainingSessionId, x.Status });
 
-        builder.HasIndex(x => new { x.UserId, x.TrainingSessionId })
-            .IsUnique()
-            .HasFilter($"[Status] = {(int)ReservationStatus.Reserved}");
     }
 }

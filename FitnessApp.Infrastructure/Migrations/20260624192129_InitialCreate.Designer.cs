@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace FitnessApp.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260622201232_InitialCreate")]
+    [Migration("20260624192129_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -337,10 +337,6 @@ namespace FitnessApp.Infrastructure.Migrations
                     b.HasIndex("TrainingSessionId");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("UserId", "TrainingSessionId")
-                        .IsUnique()
-                        .HasFilter("[Status] = 1");
 
                     b.HasIndex("UserId", "TrainingSessionId", "Status");
 

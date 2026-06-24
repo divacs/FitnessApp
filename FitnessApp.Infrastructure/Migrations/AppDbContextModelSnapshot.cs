@@ -335,10 +335,6 @@ namespace FitnessApp.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("UserId", "TrainingSessionId")
-                        .IsUnique()
-                        .HasFilter("[Status] = 1");
-
                     b.HasIndex("UserId", "TrainingSessionId", "Status");
 
                     b.ToTable("Reservations");

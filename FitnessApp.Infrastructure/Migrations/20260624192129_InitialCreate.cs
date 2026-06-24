@@ -517,13 +517,6 @@ namespace FitnessApp.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Reservations_UserId_TrainingSessionId",
-                table: "Reservations",
-                columns: new[] { "UserId", "TrainingSessionId" },
-                unique: true,
-                filter: "[Status] = 1");
-
-            migrationBuilder.CreateIndex(
                 name: "IX_Reservations_UserId_TrainingSessionId_Status",
                 table: "Reservations",
                 columns: new[] { "UserId", "TrainingSessionId", "Status" });
