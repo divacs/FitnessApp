@@ -87,7 +87,10 @@ public static class ApplicationBuilderExtensions
             };
         });
 
-        if (app.Environment.IsDevelopment())
+        var swaggerEnabled = app.Environment.IsDevelopment()
+            || app.Configuration.GetValue<bool>("SwaggerSettings:Enabled");
+
+        if (swaggerEnabled)
         {
             app.UseSwagger();
             app.UseSwaggerUI();

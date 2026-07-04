@@ -369,6 +369,14 @@ Podrazumevana vrednost:
 
 Swagger je uključen u development okruženju.
 
+U production-u ostaje isključen osim ako se privremeno eksplicitno uključi preko environment varijable:
+
+```text
+SwaggerSettings__Enabled=true
+```
+
+Posle smoke testa vrati ovu vrednost na `false` ili ukloni environment varijablu.
+
 Koristi se za:
 
 - pregled endpoint-a
@@ -405,6 +413,6 @@ GET  /api/auth/me
 
 - API koristi global exception middleware
 - svi critical datumi i token lifetime logika koriste `DateTime.UtcNow`
-- Swagger se ne pali van development-a
+- Swagger je uvek uključen u development-u, a u production-u samo kada je `SwaggerSettings__Enabled=true`
 - seed identiteta se izvršava pri startup-u, ali ne radi automatske migracije
 - connection string i secret vrednosti ne treba hardkodovati u produkciji
