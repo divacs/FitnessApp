@@ -44,6 +44,7 @@ services:
       AppSettings__CancellationDeadlineHours: ${APP_CANCELLATION_DEADLINE_HOURS:-12}
       AppSettings__DefaultTrainingCapacity: ${APP_DEFAULT_TRAINING_CAPACITY:-12}
       AppSettings__AutoMarkAttendanceDelayMinutes: ${APP_AUTO_MARK_ATTENDANCE_DELAY_MINUTES:-60}
+      SwaggerSettings__Enabled: ${SwaggerSettings__Enabled:-false}
     ports:
       - "8080:8080"
 
