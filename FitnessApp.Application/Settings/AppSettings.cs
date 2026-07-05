@@ -6,6 +6,8 @@ public sealed class AppSettings
 
     public string ContactPhone { get; init; } = string.Empty;
 
+    public string[] AllowedOrigins { get; init; } = [];
+
     public string FrontendUrl { get; init; } = string.Empty;
 
     public int CancellationDeadlineHours { get; init; }

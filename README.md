@@ -75,6 +75,22 @@ dotnet ef database update --project FitnessApp.Infrastructure --startup-project 
 dotnet run --project FitnessApp.API
 ```
 
+Za CORS mozes podesiti vise frontend origin-a preko `AppSettings:AllowedOrigins`, `AppSettings__AllowedOrigins` ili kroz `APP_ALLOWED_ORIGINS` kada koristis Docker compose.
+
+Primer produkcije:
+
+```text
+AppSettings__AllowedOrigins=https://retrofitness.rs
+```
+
+Primer lokalnog razvoja:
+
+```text
+AppSettings__AllowedOrigins=https://retrofitness.rs,http://localhost:5173
+```
+
+Ako `AllowedOrigins` nije setovan, backend i dalje koristi postojeci `AppSettings:FrontendUrl` kao fallback radi kompatibilnosti.
+
 6. U development okruženju koristi:
 
 - Swagger UI: `https://localhost:<port>/swagger`

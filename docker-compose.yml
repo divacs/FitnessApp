@@ -39,6 +39,7 @@ services:
       AdminSeed__FirstName: ${ADMIN_SEED_FIRST_NAME:-Sara}
       AdminSeed__LastName: ${ADMIN_SEED_LAST_NAME:-Admin}
       AppSettings__ContactPhone: ${APP_CONTACT_PHONE}
+      AppSettings__AllowedOrigins: ${APP_ALLOWED_ORIGINS:-}
       AppSettings__FrontendUrl: ${APP_FRONTEND_URL}
       AppSettings__CancellationDeadlineHours: ${APP_CANCELLATION_DEADLINE_HOURS:-12}
       AppSettings__DefaultTrainingCapacity: ${APP_DEFAULT_TRAINING_CAPACITY:-12}

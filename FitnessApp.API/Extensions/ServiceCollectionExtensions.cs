@@ -20,6 +20,7 @@ namespace FitnessApp.API.Extensions;
 public static class ServiceCollectionExtensions
 {
     public const string FrontendCorsPolicy = "FrontendCorsPolicy";
+    private static readonly char[] OriginSeparators = [',', ';'];
 
     public static IServiceCollection AddApiServices(
         this IServiceCollection services,
@@ -201,24 +202,12 @@ public static class ServiceCollectionExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        var frontendUrl = configuration
-            .GetSection(AppSettings.SectionName)
-            .Get<AppSettings>()?
-            .FrontendUrl;
-
-        if (string.IsNullOrWhiteSpace(frontendUrl))
-        {
-            throw new InvalidOperationException("AppSettings:FrontendUrl is required for CORS configuration.");
-        }
-
-        var allowedOrigins = frontendUrl
-            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
+        var appSettingsSection = configuration.GetSection(AppSettings.SectionName);
+        var allowedOrigins = ResolveAllowedOrigins(appSettingsSection);
 
         if (allowedOrigins.Length == 0)
         {
-            throw new InvalidOperationException("AppSettings:FrontendUrl must contain at least one valid origin.");
+            throw new InvalidOperationException("AppSettings:AllowedOrigins or AppSettings:FrontendUrl must contain at least one valid origin.");
         }
 
         services.AddCors(options =>
@@ -239,5 +228,40 @@ public static class ServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    private static string[] ResolveAllowedOrigins(IConfiguration appSettingsSection)
+    {
+        var allowedOriginsSection = appSettingsSection.GetSection(nameof(AppSettings.AllowedOrigins));
+
+        var configuredOrigins = allowedOriginsSection.GetChildren()
+            .Select(section => section.Value)
+            .OfType<string>()
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .SelectMany(origin => origin.Split(OriginSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (configuredOrigins.Length == 0 && !string.IsNullOrWhiteSpace(allowedOriginsSection.Value))
+        {
+            configuredOrigins = allowedOriginsSection.Value!
+                .Split(OriginSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        if (configuredOrigins.Length > 0)
+        {
+            return configuredOrigins;
+        }
+
+        var frontendUrl = appSettingsSection[nameof(AppSettings.FrontendUrl)];
+
+        return string.IsNullOrWhiteSpace(frontendUrl)
+            ? []
+            : frontendUrl
+                .Split(OriginSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
     }
 }
