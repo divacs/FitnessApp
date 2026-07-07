@@ -1,37 +1,37 @@
 # FitnessApp Backend
 
-FitnessApp je .NET 8 backend za mali fitness booking i membership sistem. Fokus je na jednostavnom admin workflow-u, jasnim business pravilima i clean architecture pristupu bez nepotrebne kompleksnosti.
+FitnessApp is a .NET 8 backend for a small fitness booking and membership system. The focus is on a simple admin workflow, clear business rules, and a clean architecture approach without unnecessary complexity.
 
 ## Project Overview
 
-Backend pokriva:
+The backend covers:
 
-- registraciju i login korisnika
-- JWT + refresh token autentikaciju
-- verifikaciju i blokiranje korisnika
-- treninge i rezervacije
-- članarine, pakete i single sessions
-- evidenciju uplata
-- email notifikacije i reminder-e
-- background job-ove preko Hangfire-a
-- Swagger i health check endpoint
+- user registration and login
+- JWT + refresh token authentication
+- user verification and blocking
+- training sessions and reservations
+- memberships, packages, and single sessions
+- payment tracking
+- email notifications and reminders
+- background jobs via Hangfire
+- Swagger and a health check endpoint
 
 ## Architecture Overview
 
-Solution je podeljen na 5 projekata:
+The solution is split into 5 projects:
 
 - `FitnessApp.API` - Web API entry point, controllers, middleware, auth setup, Swagger, app startup
-- `FitnessApp.Application` - DTOs, feature interfaces, validators, mappings, application contracts
-- `FitnessApp.Domain` - entities, enums, constants i core domain pravila
-- `FitnessApp.Infrastructure` - EF Core, DbContext, Identity, services, email, Hangfire jobs, seed
-- `FitnessApp.Tests` - unit i integration testovi
+- `FitnessApp.Application` - DTOs, feature interfaces, validators, mappings, and application contracts
+- `FitnessApp.Domain` - entities, enums, constants, and core domain rules
+- `FitnessApp.Infrastructure` - EF Core, DbContext, Identity, services, email, Hangfire jobs, and seed logic
+- `FitnessApp.Tests` - unit and integration tests
 
-Odgovornosti su namerno odvojene:
+Responsibilities are intentionally separated:
 
-- Domain nema EF/HTTP/email zavisnosti
-- API ne sadrži business logiku
-- Infrastructure implementira persistence i spoljne servise
-- Application drži contracts i feature-level strukturu
+- Domain has no EF/HTTP/email dependencies
+- API does not contain business logic
+- Infrastructure implements persistence and external services
+- Application holds contracts and feature-level structure
 
 ## Tech Stack
 
@@ -47,51 +47,51 @@ Odgovornosti su namerno odvojene:
 - Swagger / OpenAPI
 - xUnit + FluentAssertions
 
-## Kako Pokrenuti Projekat
+## How To Run The Project
 
-1. Instaliraj:
+1. Install:
 
 - .NET 8 SDK
 - PostgreSQL
 
-2. Podesi connection string u `FitnessApp.API/appsettings.Development.json` ili preko user-secrets.
+2. Set the connection string in `FitnessApp.API/appsettings.Development.json` or through user secrets.
 
-3. Iz root foldera restore/build:
+3. From the root folder, restore and build:
 
 ```powershell
 dotnet restore
 dotnet build
 ```
 
-4. Primeni migracije:
+4. Apply migrations:
 
 ```powershell
 dotnet ef database update --project FitnessApp.Infrastructure --startup-project FitnessApp.API --context AppDbContext
 ```
 
-5. Pokreni API:
+5. Run the API:
 
 ```powershell
 dotnet run --project FitnessApp.API
 ```
 
-Za CORS mozes podesiti vise frontend origin-a preko `AppSettings:AllowedOrigins`, `AppSettings__AllowedOrigins` ili kroz `APP_ALLOWED_ORIGINS` kada koristis Docker compose.
+For CORS, you can configure multiple frontend origins through `AppSettings:AllowedOrigins`, `AppSettings__AllowedOrigins`, or `APP_ALLOWED_ORIGINS` when using Docker Compose.
 
-Primer produkcije:
+Production example:
 
 ```text
 AppSettings__AllowedOrigins=https://retrofitness.rs
 ```
 
-Primer lokalnog razvoja:
+Local development example:
 
 ```text
 AppSettings__AllowedOrigins=https://retrofitness.rs,http://localhost:5173
 ```
 
-Ako `AllowedOrigins` nije setovan, backend i dalje koristi postojeci `AppSettings:FrontendUrl` kao fallback radi kompatibilnosti.
+If `AllowedOrigins` is not set, the backend still uses the existing `AppSettings:FrontendUrl` as a fallback for compatibility.
 
-6. U development okruženju koristi:
+6. In the development environment, use:
 
 - Swagger UI: `https://localhost:<port>/swagger`
 - Health check: `https://localhost:<port>/health`
@@ -99,11 +99,11 @@ Ako `AllowedOrigins` nije setovan, backend i dalje koristi postojeci `AppSetting
 
 ## Connection String Setup
 
-`appsettings.json` namerno ostavlja prazne vrednosti. Lokalni development primer već postoji u:
+`appsettings.json` intentionally leaves values empty. A local development example already exists in:
 
 - `FitnessApp.API/appsettings.Development.json`
 
-Primer PostgreSQL connection string-a:
+Example PostgreSQL connection string:
 
 ```json
 {
@@ -113,19 +113,19 @@ Primer PostgreSQL connection string-a:
 }
 ```
 
-Ako koristiš drugi PostgreSQL host, port, bazu ili kredencijale, menjaj samo `DefaultConnection`.
+If you use a different PostgreSQL host, port, database, or credentials, only update `DefaultConnection`.
 
-## User-Secrets Setup
+## User Secrets Setup
 
-Preporuka je da osetljive vrednosti ne ostaju u `appsettings.Development.json`.
+It is recommended not to keep sensitive values in `appsettings.Development.json`.
 
-Iz root foldera:
+From the root folder:
 
 ```powershell
 dotnet user-secrets init --project FitnessApp.API
 ```
 
-Primer korisnih secret-a:
+Examples of useful secrets:
 
 ```powershell
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=fitnessappdb;Username=postgres;Password=postgres" --project FitnessApp.API
@@ -143,67 +143,67 @@ dotnet user-secrets set "AdminSeed:LastName" "Admin" --project FitnessApp.API
 
 ## Gmail App Password Setup
 
-Email servis koristi Gmail SMTP preko:
+The email service uses Gmail SMTP with:
 
 - host: `smtp.gmail.com`
 - port: `587`
 - security: `StartTls`
 
-Za Gmail nalog nije dovoljno obična lozinka. Potreban je App Password:
+For a Gmail account, a regular password is not enough. You need an App Password:
 
-1. Uključi 2-Step Verification na Gmail nalogu.
-2. Otvori Google Account > Security > App Passwords.
-3. Kreiraj novi app password za Mail.
-4. Tu vrednost postavi u:
+1. Enable 2-Step Verification on the Gmail account.
+2. Open Google Account > Security > App Passwords.
+3. Create a new app password for Mail.
+4. Set that value in:
 
 - `EmailSettings:SmtpPassword`
 
-Bitna polja:
+Important fields:
 
 - `EmailSettings:SmtpUsername`
 - `EmailSettings:SmtpPassword`
 - `EmailSettings:FromEmail`
 - `EmailSettings:FromName`
 
-Za ovaj projekat podrazumevani sender name je:
+For this project, the default sender name is:
 
 ```text
 Sara - FitnessApp
 ```
 
-## Migrations Komande
+## Migration Commands
 
-Dodavanje nove migracije:
+Add a new migration:
 
 ```powershell
 dotnet ef migrations add <MigrationName> --project FitnessApp.Infrastructure --startup-project FitnessApp.API --context AppDbContext
 ```
 
-Primena migracija:
+Apply migrations:
 
 ```powershell
 dotnet ef database update --project FitnessApp.Infrastructure --startup-project FitnessApp.API --context AppDbContext
 ```
 
-Lista migracija:
+List migrations:
 
 ```powershell
 dotnet ef migrations list --project FitnessApp.Infrastructure --startup-project FitnessApp.API --context AppDbContext
 ```
 
-Backend ne radi automatske migracije u produkciji. Migracije se pokreću ručno.
+The backend does not run automatic migrations in production. Migrations are applied manually.
 
 ## Seed Admin Info
 
-Pri startup-u aplikacija:
+At startup, the application:
 
-- seed-uje role `Admin` i `Korisnik`
-- seed-uje default admin nalog
-- ne pokušava seed ako baza nije dostupna
+- seeds the `Admin` and `Korisnik` roles
+- seeds the default admin account
+- does not attempt seeding if the database is unavailable
 
-Admin seed dolazi iz `AdminSeed` konfiguracije.
+The admin seed comes from the `AdminSeed` configuration.
 
-Development podrazumevane vrednosti:
+Development defaults:
 
 ```json
 "AdminSeed": {
@@ -214,17 +214,17 @@ Development podrazumevane vrednosti:
 }
 ```
 
-Seed admin se kreira kao:
+The seeded admin is created as:
 
 - `Verified`
 - `EmailConfirmed = true`
-- član `Admin` role
+- a member of the `Admin` role
 
-Preporuka je da produkcija koristi bezbedne vrednosti preko environment variables ili secret store-a.
+It is recommended that production uses secure values through environment variables or a secret store.
 
 ## Auth / Refresh Token Flow
 
-Glavni auth endpoint-i:
+Main auth endpoints:
 
 ```text
 POST /api/auth/register
@@ -236,146 +236,146 @@ GET  /api/auth/me
 
 Registration:
 
-- kreira korisnika sa statusom `Unverified`
-- dodeljuje rolu `Korisnik`
-- ne uloguje korisnika automatski
+- creates a user with `Unverified` status
+- assigns the `Korisnik` role
+- does not automatically sign the user in
 
-Login uspeva samo ako:
+Login succeeds only if:
 
-- korisnik postoji
-- nije soft deleted
-- password je ispravan
-- korisnik je `Verified`
-- korisnik nije `Blocked`
+- the user exists
+- the user is not soft deleted
+- the password is correct
+- the user is `Verified`
+- the user is not `Blocked`
 
 Refresh token flow:
 
-1. Login vraća access token i refresh token.
-2. Refresh token se čuva u bazi.
-3. `POST /api/auth/refresh-token` proverava da token postoji, da nije istekao i da nije opozvan.
-4. Proverava se da je korisnik i dalje `Verified`, nije `Blocked` i nije soft deleted.
-5. Stari refresh token se opoziva.
-6. Generišu se novi access token i novi refresh token.
-7. `ReplacedByToken` ostaje upisan radi praćenja rotacije.
+1. Login returns an access token and a refresh token.
+2. The refresh token is stored in the database.
+3. `POST /api/auth/refresh-token` checks that the token exists, has not expired, and has not been revoked.
+4. It verifies that the user is still `Verified`, not `Blocked`, and not soft deleted.
+5. The old refresh token is revoked.
+6. A new access token and a new refresh token are generated.
+7. `ReplacedByToken` remains stored for rotation tracking.
 
-Važna pravila:
+Important rules:
 
-- blocked i unverified korisnici ne mogu login ni refresh
-- logout opoziva aktivni refresh token
-- ako se opozvani refresh token pokuša ponovo koristiti, sistem opoziva preostale aktivne refresh tokene tog korisnika
-- JWT validation dodatno proverava trenutno stanje korisnika u bazi
+- blocked and unverified users cannot log in or refresh
+- logout revokes the active refresh token
+- if a revoked refresh token is reused, the system revokes the user's remaining active refresh tokens
+- JWT validation additionally checks the user's current state in the database
 
 ## Reservation Without Active Membership Rule
 
-Ovo je jedno od ključnih business pravila.
+This is one of the key business rules.
 
-Korisnik sme da rezerviše trening i kada:
+A user is allowed to reserve a training session even when:
 
-- nema aktivan paket
-- nema dostupne termine
-- ima isteklo članstvo
+- they do not have an active package
+- they do not have available sessions
+- their membership has expired
 
-Razlog:
+Reason:
 
-- korisnik može doći na trening i platiti kod Sare neposredno pre ili posle treninga
+- the user may still attend the session and pay Sara immediately before or after the training
 
-Rezervacija proverava samo:
+Reservation checks only:
 
-- korisnik je `Verified`
-- korisnik nije `Blocked`
-- trening nije otkazan
-- trening nije u prošlosti
-- trening nije popunjen
-- korisnik nema duplu rezervaciju za isti trening
-- korisnik nema više od 2 naredne rezervacije
+- the user is `Verified`
+- the user is not `Blocked`
+- the training is not canceled
+- the training is not in the past
+- the training is not full
+- the user does not already have a duplicate reservation for the same training
+- the user does not have more than 2 upcoming reservations
 
-Rezervacija ne proverava:
+Reservation does not check:
 
 - balance
-- aktivnu članarinu
+- active membership
 - `CurrentBalance`
 - `RemainingSessions`
-- broj raspoloživih termina
+- number of available sessions
 
-Balance se proverava tek kada rezervacija postane:
+Balance is checked only when the reservation becomes:
 
 - `Attended`
 - `NoShow`
 
 ## Membership / Payment Rules
 
-Podržani purchase type-ovi:
+Supported purchase types:
 
 - `Package12`
 - `Package6`
 - `SingleSessions`
 
-Monthly package pravila:
+Monthly package rules:
 
-- `Package12` daje 12 termina
-- `Package6` daje 6 termina
-- oba paketa traže `StartDate`
-- ističu na `StartDate.AddMonths(1)`
+- `Package12` gives 12 sessions
+- `Package6` gives 6 sessions
+- both packages require `StartDate`
+- they expire on `StartDate.AddMonths(1)`
 
-Single sessions pravila:
+Single session rules:
 
-- nemaju `EndDate`
-- ne ističu
-- ako već postoji aktivan single-session balance, novi termini se dodaju na postojeći balance
+- they do not have an `EndDate`
+- they do not expire
+- if an active single-session balance already exists, new sessions are added to the existing balance
 
-Session consumption pravilo:
+Session consumption rule:
 
-- termin se ne skida pri rezervaciji
-- termin se skida tek na `Attended` ili `NoShow`
+- a session is not deducted when a reservation is created
+- a session is deducted only on `Attended` or `NoShow`
 
-Prioritet skidanja termina:
+Session deduction priority:
 
-1. aktivni mesečni paket (`Package12` ili `Package6`)
-2. aktivni `SingleSessions`
+1. active monthly package (`Package12` or `Package6`)
+2. active `SingleSessions`
 
-Ako korisnik nema termine:
+If the user has no sessions:
 
-- `Attended` i `NoShow` vraćaju business grešku
-- rezervacija i dalje može da postoji pre toga
+- `Attended` and `NoShow` return a business error
+- the reservation may still exist before that point
 
-`Package12` carry-over pravila:
+`Package12` carry-over rules:
 
-- prenosi se najviše 2 neiskorišćena termina
-- gleda se samo neposredno prethodni `Package12`
-- carry-over se primenjuje automatski pri kreiranju novog `Package12`
+- at most 2 unused sessions are carried over
+- only the immediately previous `Package12` is considered
+- carry-over is applied automatically when a new `Package12` is created
 
 Payment flow:
 
-- kreira se `Payment` zapis
-- zatim se kroz `BalanceService` kreira ili dopunjuje odgovarajući balance
-- koristi se transakcija za payment + balance workflow
+- a `Payment` record is created
+- then `BalanceService` creates or extends the appropriate balance
+- a transaction is used for the payment + balance workflow
 
 ## Hangfire Jobs
 
-Registrovani background job-ovi:
+Registered background jobs:
 
 - `AutoMarkAttendanceJob`
 - `TrainingReminderJob`
 - `MembershipExpirationReminderJob`
 - `NotificationEmailJob`
 
-Recurring job registracija:
+Recurring job registration:
 
 - `auto-mark-attendance` -> `*/30 * * * *`
 - `training-reminders` -> `*/30 * * * *`
 - `membership-expiration-reminders` -> `0 9 * * *`
 
-Business značenje:
+Business meaning:
 
-- `TrainingReminderJob` šalje reminder za rezervisan trening približno 24h pre početka
-- `MembershipExpirationReminderJob` šalje reminder 3 dana pre isteka samo za `Package6` i `Package12`
-- `AutoMarkAttendanceJob` pokreće auto attendance workflow nad završenim `Reserved` rezervacijama
+- `TrainingReminderJob` sends a reminder for a reserved training roughly 24 hours before it starts
+- `MembershipExpirationReminderJob` sends a reminder 3 days before expiration only for `Package6` and `Package12`
+- `AutoMarkAttendanceJob` runs the auto-attendance workflow over completed `Reserved` reservations
 
-Dashboard path dolazi iz:
+The dashboard path comes from:
 
 - `HangfireSettings:DashboardPath`
 
-Podrazumevana vrednost:
+Default value:
 
 ```text
 /hangfire
@@ -383,38 +383,38 @@ Podrazumevana vrednost:
 
 ## Swagger Usage
 
-Swagger je uključen u development okruženju.
+Swagger is enabled in the development environment.
 
-U production-u ostaje isključen osim ako se privremeno eksplicitno uključi preko environment varijable:
+In production, it remains disabled unless it is temporarily enabled explicitly through an environment variable:
 
 ```text
 SwaggerSettings__Enabled=true
 ```
 
-Posle smoke testa vrati ovu vrednost na `false` ili ukloni environment varijablu.
+After the smoke test, set this value back to `false` or remove the environment variable.
 
-Koristi se za:
+It is used for:
 
-- pregled endpoint-a
-- testiranje auth flow-a
-- admin i user API pozive
-- pregled request/response modela
+- browsing endpoints
+- testing the auth flow
+- admin and user API calls
+- reviewing request/response models
 
-Tipičan workflow:
+Typical workflow:
 
-1. Otvori `/swagger`
-2. Pozovi `POST /api/auth/login`
-3. Kopiraj access token
-4. Klikni `Authorize`
-5. Unesi:
+1. Open `/swagger`
+2. Call `POST /api/auth/login`
+3. Copy the access token
+4. Click `Authorize`
+5. Enter:
 
 ```text
 Bearer <access-token>
 ```
 
-6. Testiraj zaštićene endpoint-e
+6. Test protected endpoints
 
-## Korisni Endpoint-i
+## Useful Endpoints
 
 ```text
 GET  /health
@@ -425,10 +425,10 @@ POST /api/auth/logout
 GET  /api/auth/me
 ```
 
-## Napomene
+## Notes
 
-- API koristi global exception middleware
-- svi critical datumi i token lifetime logika koriste `DateTime.UtcNow`
-- Swagger je uvek uključen u development-u, a u production-u samo kada je `SwaggerSettings__Enabled=true`
-- seed identiteta se izvršava pri startup-u, ali ne radi automatske migracije
-- connection string i secret vrednosti ne treba hardkodovati u produkciji
+- the API uses global exception middleware
+- all critical dates and token lifetime logic use `DateTime.UtcNow`
+- Swagger is always enabled in development, and only in production when `SwaggerSettings__Enabled=true`
+- identity seeding runs at startup, but automatic migrations do not
+- connection strings and secret values should not be hardcoded in production
