@@ -261,6 +261,7 @@ UpgradeLog*.htm
 
 # Local planning docs
 docs/frontend/FRONTEND_TASKS.md
+docs/frontend/img/
 ServiceFabricBackup/
 *.rptproj.bak
 
@@ -376,3 +377,8 @@ FRONTEND_GUIDELINES.md
 NEXT_TASKS.md
 PROJECT_CONTEXT.md
 *.md
+
+# Local environment secrets
+.env
+.env.*
+!.env.example
