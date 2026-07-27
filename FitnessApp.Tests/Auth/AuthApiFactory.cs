@@ -32,7 +32,7 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:Secret"] = "integration-test-secret-that-is-long-enough",
                 ["JwtSettings:ExpirationMinutes"] = "60",
                 ["JwtSettings:RefreshTokenExpirationDays"] = "7",
-                ["AppSettings:FrontendUrl"] = "http://localhost:5173",
+                ["AppSettings:FrontendUrl"] = "http://localhost:4200",
                 ["AdminSeed:Email"] = "admin@test.local",
                 ["AdminSeed:Password"] = "Admin1234",
                 ["AdminSeed:FirstName"] = "Admin",

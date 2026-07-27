@@ -635,7 +635,7 @@ public class ReservationServiceTests
         services.AddLogging();
         services.AddSingleton(Options.Create(new AppSettings
         {
-            FrontendUrl = "http://localhost:5173",
+            FrontendUrl = "http://localhost:4200",
             CancellationDeadlineHours = cancellationDeadlineHours,
             DefaultTrainingCapacity = 10,
             AutoMarkAttendanceDelayMinutes = 60

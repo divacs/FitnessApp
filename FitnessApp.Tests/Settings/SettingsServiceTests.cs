@@ -111,7 +111,7 @@ public class SettingsServiceTests
         services.AddSingleton(Options.Create(new AppSettings
         {
             ContactPhone = "+381000000000",
-            FrontendUrl = "http://localhost:5173",
+            FrontendUrl = "http://localhost:4200",
             CancellationDeadlineHours = 12,
             DefaultTrainingCapacity = 10,
             AutoMarkAttendanceDelayMinutes = 60

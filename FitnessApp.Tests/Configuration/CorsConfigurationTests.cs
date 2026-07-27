@@ -15,7 +15,7 @@ public class CorsConfigurationTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["AppSettings:AllowedOrigins"] = "https://retrofitness.rs,http://localhost:5173"
+                ["AppSettings:AllowedOrigins"] = "https://retrofitness.rs,http://localhost:4200"
             })
             .Build();
 
@@ -29,7 +29,7 @@ public class CorsConfigurationTests
             .GetPolicy(ServiceCollectionExtensions.FrontendCorsPolicy);
 
         policy.Should().NotBeNull();
-        policy!.Origins.Should().BeEquivalentTo("https://retrofitness.rs", "http://localhost:5173");
+        policy!.Origins.Should().BeEquivalentTo("https://retrofitness.rs", "http://localhost:4200");
     }
 
     [Fact]
