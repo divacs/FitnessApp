@@ -11,6 +11,10 @@ public class UpdateTrainingSessionRequestValidator : AbstractValidator<UpdateTra
             .NotEmpty()
             .WithMessage("Naziv treninga je obavezan.");
 
+        RuleFor(x => x.TrainerName)
+            .MaximumLength(100)
+            .WithMessage("Ime trenera ne može biti duže od 100 karaktera.");
+
         RuleFor(x => x.StartTime)
             .NotEmpty()
             .WithMessage("Vreme početka je obavezno.")

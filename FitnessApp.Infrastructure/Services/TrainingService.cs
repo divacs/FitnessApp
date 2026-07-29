@@ -145,6 +145,9 @@ public class TrainingService : ITrainingService
 
         training.Title = request.Title.Trim();
         training.Description = request.Description?.Trim() ?? string.Empty;
+        training.TrainerName = string.IsNullOrWhiteSpace(request.TrainerName)
+            ? "Sara"
+            : request.TrainerName.Trim();
         training.StartTime = request.StartTime;
         training.EndTime = request.EndTime;
         training.Capacity = request.Capacity;

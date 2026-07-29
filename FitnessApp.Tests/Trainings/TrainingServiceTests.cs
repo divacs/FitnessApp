@@ -225,6 +225,7 @@ public class TrainingServiceTests
             {
                 Title = "Novi trening",
                 Description = "Opis",
+                TrainerName = "Mina",
                 StartTime = newStartTime,
                 EndTime = newStartTime.AddHours(1),
                 Capacity = 8,
@@ -234,6 +235,7 @@ public class TrainingServiceTests
 
         response.Title.Should().Be("Novi trening");
         response.Description.Should().Be("Opis");
+        response.TrainerName.Should().Be("Mina");
         response.Capacity.Should().Be(8);
         response.IsCancelled.Should().BeTrue();
         response.CancellationReason.Should().Be("Pomeranje termina");

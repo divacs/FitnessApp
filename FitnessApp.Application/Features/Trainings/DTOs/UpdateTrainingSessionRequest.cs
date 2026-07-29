@@ -6,6 +6,8 @@ public class UpdateTrainingSessionRequest
 
     public string? Description { get; init; }
 
+    public string? TrainerName { get; init; }
+
     public DateTime StartTime { get; init; }
 
     public DateTime EndTime { get; init; }
