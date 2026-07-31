@@ -14,6 +14,7 @@ public static class PaymentMappings
             UserFullName = payment.User.FullName,
             Amount = payment.Amount,
             PaymentDate = payment.PaymentDate,
+            StartDate = payment.StartDate,
             PaymentType = payment.PaymentType,
             NumberOfSessions = payment.NumberOfSessions,
             Note = payment.Note,

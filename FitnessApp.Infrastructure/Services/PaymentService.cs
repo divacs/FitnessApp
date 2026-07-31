@@ -44,6 +44,7 @@ public class PaymentService : IPaymentService
             UserId = request.UserId,
             Amount = request.Amount,
             PaymentDate = request.PaymentDate,
+            StartDate = request.StartDate,
             PaymentType = request.PaymentType,
             NumberOfSessions = GetNumberOfSessions(request),
             Note = request.Note,
@@ -88,8 +89,11 @@ public class PaymentService : IPaymentService
 
         payment.Amount = request.Amount;
         payment.PaymentDate = request.PaymentDate;
+        payment.StartDate = ResolveUpdatedPaymentStartDate(payment.PaymentType, request.StartDate, payment.StartDate);
         payment.Note = request.Note;
         payment.UpdatedAt = DateTime.UtcNow;
+
+        await UpdateRelatedBalanceAsync(payment, cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -218,6 +222,11 @@ public class PaymentService : IPaymentService
         {
             throw new BadRequestException("Datum uplate je obavezan.");
         }
+
+        if (request.StartDate.HasValue && request.StartDate.Value == default)
+        {
+            throw new BadRequestException("Datum početka je obavezan za paket.");
+        }
     }
 
     private async Task CreateOrUpdateBalanceAsync(
@@ -327,6 +336,79 @@ public class PaymentService : IPaymentService
         }
 
         return request.StartDate.Value;
+    }
+
+    private async Task UpdateRelatedBalanceAsync(
+        Payment payment,
+        CancellationToken cancellationToken)
+    {
+        if (!IsPackagePaymentType(payment.PaymentType) || !payment.StartDate.HasValue)
+        {
+            return;
+        }
+
+        var balance = await FindRelatedBalanceAsync(payment, cancellationToken);
+
+        if (balance is null)
+        {
+            _logger.LogWarning(
+                "No related balance found while updating payment {PaymentId} for user {UserId}.",
+                payment.Id,
+                payment.UserId);
+            return;
+        }
+
+        balance.StartDate = payment.StartDate.Value;
+        balance.EndDate = payment.StartDate.Value.AddMonths(1);
+        balance.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private async Task<UserTrainingBalance?> FindRelatedBalanceAsync(
+        Payment payment,
+        CancellationToken cancellationToken)
+    {
+        var query = _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == payment.UserId
+                && balance.PurchaseType == payment.PaymentType
+                && balance.TotalSessions == payment.NumberOfSessions);
+
+        if (payment.CreatedByAdminId.HasValue)
+        {
+            query = query.Where(balance => balance.CreatedByAdminId == payment.CreatedByAdminId);
+        }
+
+        if (payment.StartDate.HasValue)
+        {
+            var startDate = payment.StartDate.Value;
+
+            return await query
+                .OrderByDescending(balance => balance.StartDate == startDate)
+                .ThenByDescending(balance => balance.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return await query
+            .OrderByDescending(balance => balance.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static DateTime? ResolveUpdatedPaymentStartDate(
+        PurchaseType paymentType,
+        DateTime? requestedStartDate,
+        DateTime? currentStartDate)
+    {
+        if (!IsPackagePaymentType(paymentType))
+        {
+            return null;
+        }
+
+        return requestedStartDate ?? currentStartDate;
+    }
+
+    private static bool IsPackagePaymentType(PurchaseType paymentType)
+    {
+        return paymentType is PurchaseType.Package6 or PurchaseType.Package12 or PurchaseType.Package16;
     }
 
     private static IQueryable<Payment> ApplyFilters(

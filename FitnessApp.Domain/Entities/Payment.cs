@@ -15,6 +15,8 @@ public class Payment
 
     public DateTime PaymentDate { get; set; }
 
+    public DateTime? StartDate { get; set; }
+
     public PurchaseType PaymentType { get; set; }
 
     public int NumberOfSessions { get; set; }

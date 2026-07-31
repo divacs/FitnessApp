@@ -14,6 +14,8 @@ public class PaymentResponse
 
     public DateTime PaymentDate { get; init; }
 
+    public DateTime? StartDate { get; init; }
+
     public PurchaseType PaymentType { get; init; }
 
     public int NumberOfSessions { get; init; }

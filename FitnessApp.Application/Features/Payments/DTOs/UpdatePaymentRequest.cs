@@ -6,5 +6,7 @@ public class UpdatePaymentRequest
 
     public DateTime PaymentDate { get; init; }
 
+    public DateTime? StartDate { get; init; }
+
     public string? Note { get; init; }
 }
