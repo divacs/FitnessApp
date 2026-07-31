@@ -30,6 +30,6 @@ public class CreatePaymentRequestValidator : AbstractValidator<CreatePaymentRequ
         RuleFor(x => x.StartDate)
             .NotNull()
             .WithMessage("Datum početka je obavezan za paket.")
-            .When(x => x.PaymentType is PurchaseType.Package12 or PurchaseType.Package6);
+            .When(x => x.PaymentType is PurchaseType.Package12 or PurchaseType.Package6 or PurchaseType.Package16);
     }
 }

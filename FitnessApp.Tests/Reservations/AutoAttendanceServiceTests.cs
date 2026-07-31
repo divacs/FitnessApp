@@ -269,8 +269,10 @@ public class AutoAttendanceServiceTests
         public Task<CurrentBalanceResponse> GetCurrentBalanceAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<BalanceHistoryResponse>> GetBalanceHistoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<UserTrainingBalanceResponse>> GetUserBalancesAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<AvailablePackageResponse>> GetAvailablePackagesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<UserTrainingBalanceResponse> CreatePackage12Async(Guid userId, CreatePackage12Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<UserTrainingBalanceResponse> CreatePackage6Async(Guid userId, CreatePackage6Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<UserTrainingBalanceResponse> CreatePackage16Async(Guid userId, CreatePackage16Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<UserTrainingBalanceResponse> AddSingleSessionsAsync(Guid userId, AddSingleSessionsRequest request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task ApplyCarryOverAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<UserTrainingBalanceResponse> UpdateBalanceAsync(Guid balanceId, UpdateBalanceRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();

@@ -96,6 +96,31 @@ public class BalanceService : IBalanceService
             .ToArray();
     }
 
+    public Task<IReadOnlyCollection<AvailablePackageResponse>> GetAvailablePackagesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        IReadOnlyCollection<AvailablePackageResponse> packages =
+        [
+            new AvailablePackageResponse
+            {
+                PurchaseType = PurchaseType.Package6,
+                NumberOfSessions = 6
+            },
+            new AvailablePackageResponse
+            {
+                PurchaseType = PurchaseType.Package12,
+                NumberOfSessions = 12
+            },
+            new AvailablePackageResponse
+            {
+                PurchaseType = PurchaseType.Package16,
+                NumberOfSessions = 16
+            }
+        ];
+
+        return Task.FromResult(packages);
+    }
+
     public Task<UserTrainingBalanceResponse> CreatePackage12Async(
         Guid userId,
         CreatePackage12Request request,
@@ -125,6 +150,22 @@ public class BalanceService : IBalanceService
             adminId,
             PurchaseType.Package6,
             totalSessions: 6,
+            cancellationToken);
+    }
+
+    public Task<UserTrainingBalanceResponse> CreatePackage16Async(
+        Guid userId,
+        CreatePackage16Request request,
+        Guid adminId,
+        CancellationToken cancellationToken = default)
+    {
+        return CreateMonthlyPackageAsync(
+            userId,
+            request.StartDate,
+            request.Notes,
+            adminId,
+            PurchaseType.Package16,
+            totalSessions: 16,
             cancellationToken);
     }
 
@@ -295,7 +336,7 @@ public class BalanceService : IBalanceService
                 && balance.IsActive
                 && !balance.IsExpired
                 && balance.RemainingSessions > 0
-                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                && IsMonthlyPackage(balance.PurchaseType)
                 && balance.EndDate >= utcNow);
     }
 
@@ -449,5 +490,10 @@ public class BalanceService : IBalanceService
             adminId);
 
         return balance.ToResponse();
+    }
+
+    private static bool IsMonthlyPackage(PurchaseType purchaseType)
+    {
+        return purchaseType is PurchaseType.Package6 or PurchaseType.Package12 or PurchaseType.Package16;
     }
 }

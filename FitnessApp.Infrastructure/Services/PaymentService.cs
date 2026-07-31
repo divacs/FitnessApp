@@ -201,7 +201,7 @@ public class PaymentService : IPaymentService
             _ = GetRequiredNumberOfSessions(request);
         }
 
-        if (request.PaymentType is PurchaseType.Package12 or PurchaseType.Package6)
+        if (request.PaymentType is PurchaseType.Package12 or PurchaseType.Package6 or PurchaseType.Package16)
         {
             _ = GetRequiredStartDate(request);
         }
@@ -251,6 +251,18 @@ public class PaymentService : IPaymentService
                     cancellationToken);
                 break;
 
+            case PurchaseType.Package16:
+                await _balanceService.CreatePackage16Async(
+                    request.UserId,
+                    new CreatePackage16Request
+                    {
+                        StartDate = GetRequiredStartDate(request),
+                        Notes = request.Note
+                    },
+                    adminId,
+                    cancellationToken);
+                break;
+
             case PurchaseType.SingleSessions:
                 await _balanceService.AddSingleSessionsAsync(
                     request.UserId,
@@ -291,6 +303,7 @@ public class PaymentService : IPaymentService
         {
             PurchaseType.Package12 => 12,
             PurchaseType.Package6 => 6,
+            PurchaseType.Package16 => 16,
             PurchaseType.SingleSessions => GetRequiredNumberOfSessions(request),
             _ => throw new BadRequestException("Tip uplate nije validan.")
         };

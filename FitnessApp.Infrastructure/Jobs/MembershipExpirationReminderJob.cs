@@ -40,7 +40,8 @@ public class MembershipExpirationReminderJob
                     && !balance.IsExpired
                     && balance.ExpirationReminderSentAt == null
                     && (balance.PurchaseType == PurchaseType.Package12
-                        || balance.PurchaseType == PurchaseType.Package6)
+                        || balance.PurchaseType == PurchaseType.Package6
+                        || balance.PurchaseType == PurchaseType.Package16)
                     && balance.EndDate >= expirationDayStart
                     && balance.EndDate < expirationDayEnd)
                 .OrderBy(balance => balance.EndDate)

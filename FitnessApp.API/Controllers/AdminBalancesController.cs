@@ -24,6 +24,19 @@ public class AdminBalancesController : ControllerBase
     }
 
     /// <summary>
+    /// VraÄ‡a sve dostupne tipove paketa.
+    /// </summary>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
+    [HttpGet("balances/packages")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<AvailablePackageResponse>>>> GetAvailablePackages(
+        CancellationToken cancellationToken)
+    {
+        var packages = await _balanceService.GetAvailablePackagesAsync(cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyCollection<AvailablePackageResponse>>.Success(packages));
+    }
+
+    /// <summary>
     /// Vraća sva stanja termina za izabranog korisnika.
     /// </summary>
     /// <param name="userId">Identifikator korisnika.</param>
@@ -87,6 +100,24 @@ public class AdminBalancesController : ControllerBase
         var balance = await _balanceService.CreatePackage6Async(userId, request, adminId, cancellationToken);
 
         return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Paket od 6 termina je dodat."));
+    }
+
+    /// <summary>
+    /// Dodaje paket od 16 termina korisniku.
+    /// </summary>
+    /// <param name="userId">Identifikator korisnika.</param>
+    /// <param name="request">Podaci za novi paket.</param>
+    /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
+    [HttpPost("users/{userId:guid}/balances/package-16")]
+    public async Task<ActionResult<ApiResponse<UserTrainingBalanceResponse>>> CreatePackage16(
+        Guid userId,
+        CreatePackage16Request request,
+        CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        var balance = await _balanceService.CreatePackage16Async(userId, request, adminId, cancellationToken);
+
+        return Ok(ApiResponse<UserTrainingBalanceResponse>.Success(balance, "Paket od 16 termina je dodat."));
     }
 
     /// <summary>

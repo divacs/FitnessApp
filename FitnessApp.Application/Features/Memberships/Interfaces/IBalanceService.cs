@@ -22,6 +22,9 @@ public interface IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<AvailablePackageResponse>> GetAvailablePackagesAsync(
+        CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Creates a monthly 12-session package and applies Package12 carry-over rules.
     /// </summary>
@@ -37,6 +40,15 @@ public interface IBalanceService
     Task<UserTrainingBalanceResponse> CreatePackage6Async(
         Guid userId,
         CreatePackage6Request request,
+        Guid adminId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a monthly 16-session package.
+    /// </summary>
+    Task<UserTrainingBalanceResponse> CreatePackage16Async(
+        Guid userId,
+        CreatePackage16Request request,
         Guid adminId,
         CancellationToken cancellationToken = default);
 

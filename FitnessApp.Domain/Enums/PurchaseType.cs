@@ -16,6 +16,11 @@ public enum PurchaseType
     Package6 = 2,
 
     /// <summary>
+    /// Package with sixteen training sessions.
+    /// </summary>
+    Package16 = 4,
+
+    /// <summary>
     /// Purchase of individual training sessions.
     /// </summary>
     SingleSessions = 3

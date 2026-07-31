@@ -79,7 +79,9 @@ public class AdminDashboardService : IAdminDashboardService
             .Where(balance =>
                 balance.IsActive
                 && !balance.IsExpired
-                && (balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                && (balance.PurchaseType == PurchaseType.Package12
+                    || balance.PurchaseType == PurchaseType.Package6
+                    || balance.PurchaseType == PurchaseType.Package16)
                 && balance.EndDate >= utcNow
                 && balance.EndDate <= expiringUntil)
             .OrderBy(balance => balance.EndDate)
@@ -146,7 +148,9 @@ public class AdminDashboardService : IAdminDashboardService
                 && !balance.IsExpired
                 && balance.RemainingSessions > 0
                 && (balance.PurchaseType == PurchaseType.SingleSessions
-                    || ((balance.PurchaseType == PurchaseType.Package12 || balance.PurchaseType == PurchaseType.Package6)
+                    || ((balance.PurchaseType == PurchaseType.Package12
+                            || balance.PurchaseType == PurchaseType.Package6
+                            || balance.PurchaseType == PurchaseType.Package16)
                         && balance.EndDate >= utcNow)))
             .Select(balance => balance.UserId)
             .Distinct()
