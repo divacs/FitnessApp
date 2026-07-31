@@ -18,6 +18,10 @@ public interface IBalanceService
         Guid userId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyCollection<MembershipHistoryResponse>> GetMembershipHistoryAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyCollection<UserTrainingBalanceResponse>> GetUserBalancesAsync(
         Guid userId,
         CancellationToken cancellationToken = default);

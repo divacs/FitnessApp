@@ -78,6 +78,51 @@ public class BalanceService : IBalanceService
             .ToArray();
     }
 
+    public async Task<IReadOnlyCollection<MembershipHistoryResponse>> GetMembershipHistoryAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateUserId(userId);
+        await EnsureUserExistsAsync(userId, cancellationToken);
+
+        var utcNow = DateTime.UtcNow;
+        var activeMembershipIds = await GetAvailableMonthlyPackagesQuery(userId, utcNow)
+            .AsNoTracking()
+            .Select(balance => balance.Id)
+            .ToListAsync(cancellationToken);
+
+        var memberships = await _dbContext.UserTrainingBalances
+            .AsNoTracking()
+            .Where(balance =>
+                balance.UserId == userId
+                && (balance.PurchaseType == PurchaseType.Package6
+                    || balance.PurchaseType == PurchaseType.Package12
+                    || balance.PurchaseType == PurchaseType.Package16))
+            .OrderByDescending(balance => balance.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        var paymentDates = await _dbContext.Payments
+            .AsNoTracking()
+            .Where(payment =>
+                payment.UserId == userId
+                && (payment.PaymentType == PurchaseType.Package6
+                    || payment.PaymentType == PurchaseType.Package12
+                    || payment.PaymentType == PurchaseType.Package16))
+            .OrderByDescending(payment => payment.PaymentDate)
+            .Select(payment => new MembershipPaymentLookup(
+                payment.PaymentType,
+                payment.StartDate,
+                payment.PaymentDate,
+                payment.NumberOfSessions))
+            .ToListAsync(cancellationToken);
+
+        return memberships
+            .Select(balance => balance.ToMembershipHistoryResponse(
+                FindPaymentDate(balance, paymentDates),
+                activeMembershipIds.Contains(balance.Id)))
+            .ToArray();
+    }
+
     public async Task<IReadOnlyCollection<UserTrainingBalanceResponse>> GetUserBalancesAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
@@ -336,7 +381,9 @@ public class BalanceService : IBalanceService
                 && balance.IsActive
                 && !balance.IsExpired
                 && balance.RemainingSessions > 0
-                && IsMonthlyPackage(balance.PurchaseType)
+                && (balance.PurchaseType == PurchaseType.Package6
+                    || balance.PurchaseType == PurchaseType.Package12
+                    || balance.PurchaseType == PurchaseType.Package16)
                 && balance.EndDate >= utcNow);
     }
 
@@ -496,4 +543,22 @@ public class BalanceService : IBalanceService
     {
         return purchaseType is PurchaseType.Package6 or PurchaseType.Package12 or PurchaseType.Package16;
     }
+
+    private static DateTime? FindPaymentDate(
+        UserTrainingBalance balance,
+        IEnumerable<MembershipPaymentLookup> paymentDates)
+    {
+        var payment = paymentDates.FirstOrDefault(payment =>
+            payment.PaymentType == balance.PurchaseType
+            && payment.NumberOfSessions == balance.TotalSessions
+            && payment.StartDate == balance.StartDate);
+
+        return payment?.PaymentDate;
+    }
+
+    private sealed record MembershipPaymentLookup(
+        PurchaseType PaymentType,
+        DateTime? StartDate,
+        DateTime PaymentDate,
+        int NumberOfSessions);
 }

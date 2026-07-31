@@ -48,4 +48,17 @@ public class UserBalancesController : ControllerBase
 
         return Ok(ApiResponse<IReadOnlyCollection<BalanceHistoryResponse>>.Success(balances));
     }
+
+    /// <summary>
+    /// Vraća istoriju svih korisnikovih članarina/paketa.
+    /// </summary>
+    [HttpGet("memberships/history")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<MembershipHistoryResponse>>>> GetMembershipHistory(
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var memberships = await _balanceService.GetMembershipHistoryAsync(userId, cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyCollection<MembershipHistoryResponse>>.Success(memberships));
+    }
 }

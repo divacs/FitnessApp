@@ -268,6 +268,7 @@ public class AutoAttendanceServiceTests
 
         public Task<CurrentBalanceResponse> GetCurrentBalanceAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<BalanceHistoryResponse>> GetBalanceHistoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyCollection<MembershipHistoryResponse>> GetMembershipHistoryAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<UserTrainingBalanceResponse>> GetUserBalancesAsync(Guid userId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyCollection<AvailablePackageResponse>> GetAvailablePackagesAsync(CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<UserTrainingBalanceResponse> CreatePackage12Async(Guid userId, CreatePackage12Request request, Guid adminId, CancellationToken cancellationToken = default) => throw new NotImplementedException();

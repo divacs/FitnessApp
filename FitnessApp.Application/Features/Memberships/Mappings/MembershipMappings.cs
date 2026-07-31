@@ -1,5 +1,6 @@
 using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Domain.Entities;
+using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Memberships.Mappings;
 
@@ -41,6 +42,37 @@ public static class MembershipMappings
             CarriedOverSessions = balance.CarriedOverSessions,
             CreatedAt = balance.CreatedAt,
             Notes = balance.Notes
+        };
+    }
+
+    public static MembershipHistoryResponse ToMembershipHistoryResponse(
+        this UserTrainingBalance balance,
+        DateTime? paymentDate,
+        bool isCurrentlyActive)
+    {
+        return new MembershipHistoryResponse
+        {
+            Id = balance.Id,
+            PurchaseType = balance.PurchaseType,
+            PackageName = ResolvePackageName(balance.PurchaseType),
+            StartDate = balance.StartDate,
+            PaymentDate = paymentDate,
+            EndDate = balance.EndDate,
+            TotalSessions = balance.TotalSessions,
+            RemainingSessions = balance.RemainingSessions,
+            IsCurrentlyActive = isCurrentlyActive
+        };
+    }
+
+    private static string ResolvePackageName(PurchaseType purchaseType)
+    {
+        return purchaseType switch
+        {
+            PurchaseType.Package6 => "Paket 6",
+            PurchaseType.Package12 => "Paket 12",
+            PurchaseType.Package16 => "Paket 16",
+            PurchaseType.SingleSessions => "Pojedinačni termini",
+            _ => purchaseType.ToString()
         };
     }
 }
