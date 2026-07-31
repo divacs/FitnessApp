@@ -51,6 +51,15 @@ public static class ApplicationBuilderExtensions
             job => job.ExecuteAsync(),
             "*/30 * * * *");
 
+        recurringJobManager.AddOrUpdate<BiweeklyTrainingSessionSeedingJob>(
+            BiweeklyTrainingSessionSeedingJob.RecurringJobId,
+            job => job.ExecuteAsync(CancellationToken.None),
+            BiweeklyTrainingSessionSeedingJob.CronExpression,
+            new RecurringJobOptions
+            {
+                TimeZone = BiweeklyTrainingSessionSeedingJob.ResolveTimeZone()
+            });
+
         recurringJobManager.AddOrUpdate<TrainingReminderJob>(
             "training-reminders",
             job => job.ExecuteAsync(),

@@ -60,6 +60,7 @@ public static class InfrastructureServiceCollectionExtensions
                     });
         });
         services.AddHangfireServer();
+        services.AddSingleton(TimeProvider.System);
 
         services
             .AddIdentity<ApplicationUser, IdentityRole<Guid>>(options =>
@@ -93,6 +94,7 @@ public static class InfrastructureServiceCollectionExtensions
         services.AddScoped<ITermsService, TermsService>();
         services.AddScoped<ITrainingService, TrainingService>();
         services.AddScoped<AutoMarkAttendanceJob>();
+        services.AddScoped<BiweeklyTrainingSessionSeedingJob>();
         services.AddScoped<TrainingReminderJob>();
         services.AddScoped<MembershipExpirationReminderJob>();
         services.AddScoped<NotificationEmailJob>();
