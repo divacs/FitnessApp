@@ -1,9 +1,9 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Dashboard.DTOs;
 using FitnessApp.Application.Features.Dashboard.Interfaces;
+using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Memberships.Interfaces;
 using FitnessApp.Application.Features.Notifications.Mappings;
-using FitnessApp.Application.Features.Reservations.Mappings;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -13,9 +13,8 @@ namespace FitnessApp.Infrastructure.Services;
 
 public class DashboardService : IDashboardService
 {
-    private const int UpcomingReservationsLimit = 5;
-    private const int LatestNotificationsLimit = 5;
-    private const int MembershipExpirationWarningDays = 3;
+    private const int UpcomingReservationsLimit = 3;
+    private const int LatestNotificationsLimit = 3;
 
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
@@ -40,21 +39,21 @@ public class DashboardService : IDashboardService
             throw new BadRequestException("Korisnik je obavezan.");
         }
 
-        var user = await _dbContext.Users
+        var userExists = await _dbContext.Users
             .AsNoTracking()
-            .FirstOrDefaultAsync(user => user.Id == userId && !user.IsDeleted, cancellationToken);
+            .AnyAsync(user => user.Id == userId && !user.IsDeleted, cancellationToken);
 
-        if (user is null)
+        if (!userExists)
         {
             throw new NotFoundException("Korisnik nije pronađen.");
         }
 
         var currentBalance = await _balanceService.GetCurrentBalanceAsync(userId, cancellationToken);
+        var activeMembership = currentBalance.ActivePackage;
         var utcNow = DateTime.UtcNow;
 
         var upcomingReservations = await _dbContext.Reservations
             .AsNoTracking()
-            .Include(reservation => reservation.User)
             .Include(reservation => reservation.TrainingSession)
             .Where(reservation =>
                 reservation.UserId == userId
@@ -62,6 +61,14 @@ public class DashboardService : IDashboardService
                 && reservation.TrainingSession.StartTime > utcNow)
             .OrderBy(reservation => reservation.TrainingSession.StartTime)
             .Take(UpcomingReservationsLimit)
+            .Select(reservation => new DashboardUpcomingReservationResponse
+            {
+                TrainingSessionId = reservation.TrainingSessionId,
+                TrainingTitle = reservation.TrainingSession.Title,
+                TrainingStartTime = reservation.TrainingSession.StartTime,
+                TrainingEndTime = reservation.TrainingSession.EndTime,
+                TrainerName = reservation.TrainingSession.TrainerName
+            })
             .ToListAsync(cancellationToken);
 
         var latestNotifications = await _dbContext.UserNotifications
@@ -72,54 +79,62 @@ public class DashboardService : IDashboardService
             .Take(LatestNotificationsLimit)
             .ToListAsync(cancellationToken);
 
-        var membershipExpirationWarning = BuildMembershipExpirationWarning(currentBalance.MembershipExpiresAt, utcNow);
+        var unreadNotificationsCount = await _dbContext.UserNotifications
+            .AsNoTracking()
+            .CountAsync(
+                userNotification => userNotification.UserId == userId && !userNotification.IsRead,
+                cancellationToken);
+
+        var activeMembershipPaymentId = await GetActiveMembershipPaymentIdAsync(
+            userId,
+            activeMembership,
+            cancellationToken);
 
         _logger.LogInformation("Loaded dashboard for user {UserId}.", userId);
 
         return new UserDashboardResponse
         {
-            User = new DashboardUserInfoResponse
-            {
-                Id = user.Id,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                FullName = user.FullName,
-                Email = user.Email ?? string.Empty,
-                UserStatus = user.UserStatus
-            },
-            CurrentBalance = currentBalance,
-            ActivePackage = currentBalance.ActivePackage,
-            MembershipExpiresAt = currentBalance.MembershipExpiresAt,
-            SingleSessionsRemaining = currentBalance.SingleSessionsRemaining,
-            UpcomingReservations = upcomingReservations
-                .Select(reservation => reservation.ToResponse())
-                .ToArray(),
+            ActiveMembership = activeMembership is null
+                ? null
+                : new DashboardActiveMembershipResponse
+                {
+                    PaymentId = activeMembershipPaymentId,
+                    PaymentType = activeMembership.PurchaseType,
+                    NumberOfSessions = activeMembership.TotalSessions,
+                    RemainingSessions = activeMembership.RemainingSessions,
+                    StartDate = activeMembership.StartDate,
+                    EndDate = activeMembership.EndDate,
+                    Status = "Active"
+                },
+            UpcomingReservations = upcomingReservations,
             LatestNotifications = latestNotifications
                 .Select(notification => notification.ToResponse())
                 .ToArray(),
-            IsMembershipExpiringSoon = membershipExpirationWarning is not null,
-            MembershipExpirationWarning = membershipExpirationWarning
+            UnreadNotificationsCount = unreadNotificationsCount
         };
     }
 
-    private static string? BuildMembershipExpirationWarning(
-        DateTime? membershipExpiresAt,
-        DateTime utcNow)
+    private async Task<Guid?> GetActiveMembershipPaymentIdAsync(
+        Guid userId,
+        UserTrainingBalanceResponse? activeMembership,
+        CancellationToken cancellationToken)
     {
-        if (!membershipExpiresAt.HasValue)
+        if (activeMembership is null)
         {
             return null;
         }
 
-        var daysUntilExpiration = (membershipExpiresAt.Value.Date - utcNow.Date).Days;
+        var payment = await _dbContext.Payments
+            .AsNoTracking()
+            .Where(payment =>
+                payment.UserId == userId
+                && payment.PaymentType == activeMembership.PurchaseType
+                && payment.NumberOfSessions == activeMembership.TotalSessions
+                && payment.StartDate == activeMembership.StartDate)
+            .OrderByDescending(payment => payment.PaymentDate)
+            .ThenByDescending(payment => payment.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        if (daysUntilExpiration < 0 || daysUntilExpiration > MembershipExpirationWarningDays)
-        {
-            return null;
-        }
-
-        return daysUntilExpiration == 0
-            ? "Članarina ističe danas."
-            : $"Članarina ističe za {daysUntilExpiration} dana.";
+        return payment?.Id;
     }
 }

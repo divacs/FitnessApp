@@ -13,7 +13,7 @@ namespace FitnessApp.Tests.Dashboard;
 public class DashboardServiceTests
 {
     [Fact]
-    public async Task GetUserDashboardAsync_ShouldReturnUserBalanceReservationsNotificationsAndExpirationWarning()
+    public async Task GetUserDashboardAsync_ShouldReturnActiveMembershipReservationsAndNotifications()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -45,6 +45,17 @@ public class DashboardServiceTests
             IsExpired = false,
             CreatedAt = DateTime.UtcNow.AddDays(-1)
         };
+        var payment = new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            Amount = 4500,
+            PaymentDate = activePackage.StartDate,
+            StartDate = activePackage.StartDate,
+            PaymentType = PurchaseType.Package12,
+            NumberOfSessions = 12,
+            CreatedAt = activePackage.CreatedAt
+        };
         var laterTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Kasniji trening");
         var earlierTraining = CreateTraining(DateTime.UtcNow.AddDays(1), "Raniji trening");
         var pastTraining = CreateTraining(DateTime.UtcNow.AddDays(-1), "Prosli trening");
@@ -53,6 +64,7 @@ public class DashboardServiceTests
 
         dbContext.Users.Add(user);
         dbContext.UserTrainingBalances.AddRange(activePackage, singleSessions);
+        dbContext.Payments.Add(payment);
         dbContext.TrainingSessions.AddRange(laterTraining, earlierTraining, pastTraining);
         dbContext.Reservations.AddRange(
             CreateReservation(user.Id, laterTraining.Id, ReservationStatus.Reserved),
@@ -66,25 +78,25 @@ public class DashboardServiceTests
 
         var response = await dashboardService.GetUserDashboardAsync(user.Id);
 
-        response.User.Id.Should().Be(user.Id);
-        response.User.Email.Should().Be(user.Email);
-        response.User.UserStatus.Should().Be(UserStatus.Verified);
-        response.ActivePackage.Should().NotBeNull();
-        response.MembershipExpiresAt.Should().Be(activePackage.EndDate);
-        response.SingleSessionsRemaining.Should().Be(2);
-        response.CurrentBalance.TotalRemainingSessions.Should().Be(6);
+        response.ActiveMembership.Should().NotBeNull();
+        response.ActiveMembership!.PaymentId.Should().Be(payment.Id);
+        response.ActiveMembership.PaymentType.Should().Be(PurchaseType.Package12);
+        response.ActiveMembership.NumberOfSessions.Should().Be(12);
+        response.ActiveMembership.RemainingSessions.Should().Be(4);
+        response.ActiveMembership.StartDate.Should().Be(activePackage.StartDate);
+        response.ActiveMembership.EndDate.Should().Be(activePackage.EndDate);
+        response.ActiveMembership.Status.Should().Be("Active");
         response.UpcomingReservations.Select(reservation => reservation.TrainingSessionId)
             .Should()
             .Equal(earlierTraining.Id, laterTraining.Id);
         response.LatestNotifications.Select(notification => notification.Title)
             .Should()
             .Equal("Najnovije", "Starije");
-        response.IsMembershipExpiringSoon.Should().BeTrue();
-        response.MembershipExpirationWarning.Should().Be("Članarina ističe za 2 dana.");
+        response.UnreadNotificationsCount.Should().Be(2);
     }
 
     [Fact]
-    public async Task GetUserDashboardAsync_WhenMembershipIsNotExpiringSoon_ShouldNotReturnWarning()
+    public async Task GetUserDashboardAsync_WhenActiveMembershipExists_ShouldReturnIt()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -109,8 +121,9 @@ public class DashboardServiceTests
 
         var response = await dashboardService.GetUserDashboardAsync(user.Id);
 
-        response.IsMembershipExpiringSoon.Should().BeFalse();
-        response.MembershipExpirationWarning.Should().BeNull();
+        response.ActiveMembership.Should().NotBeNull();
+        response.ActiveMembership!.PaymentType.Should().Be(PurchaseType.Package6);
+        response.ActiveMembership.RemainingSessions.Should().Be(6);
     }
 
     private static ServiceProvider CreateServiceProvider()
