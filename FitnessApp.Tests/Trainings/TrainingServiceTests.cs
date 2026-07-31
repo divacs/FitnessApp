@@ -19,7 +19,7 @@ namespace FitnessApp.Tests.Trainings;
 public class TrainingServiceTests
 {
     [Fact]
-    public async Task GetUpcomingTrainingsAsync_ShouldReturnOnlyFutureTrainingsSortedByStartTime()
+    public async Task GetUpcomingTrainingsAsync_ShouldReturnOnlyFutureTrainingsSortedByStartTimeDescending()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -33,7 +33,7 @@ public class TrainingServiceTests
         var response = await trainingService.GetUpcomingTrainingsAsync();
 
         response.Should().HaveCount(2);
-        response.Select(training => training.Id).Should().Equal(earlierTraining.Id, laterTraining.Id);
+        response.Select(training => training.Id).Should().Equal(laterTraining.Id, earlierTraining.Id);
     }
 
     [Fact]

@@ -60,7 +60,7 @@ public class TrainingService : ITrainingService
         }
 
         var trainings = await query
-            .OrderBy(training => training.StartTime)
+            .OrderByDescending(training => training.StartTime)
             .ToListAsync(cancellationToken);
 
         return trainings
