@@ -39,12 +39,14 @@ public class PaymentService : IPaymentService
 
         await EnsureUserExistsAsync(request.UserId, cancellationToken);
 
+        var paymentStartDate = request.StartDate;
+
         var payment = new Payment
         {
             UserId = request.UserId,
             Amount = request.Amount,
             PaymentDate = request.PaymentDate,
-            StartDate = request.StartDate,
+            StartDate = paymentStartDate,
             PaymentType = request.PaymentType,
             NumberOfSessions = GetNumberOfSessions(request),
             Note = request.Note,
@@ -57,7 +59,13 @@ public class PaymentService : IPaymentService
         _dbContext.Payments.Add(payment);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await CreateOrUpdateBalanceAsync(request, adminId, cancellationToken);
+        var createdBalance = await CreateOrUpdateBalanceAsync(request, adminId, cancellationToken);
+
+        if (createdBalance is not null && IsPackagePaymentType(request.PaymentType))
+        {
+            payment.StartDate = createdBalance.StartDate;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         await transaction.CommitAsync(cancellationToken);
 
@@ -229,7 +237,7 @@ public class PaymentService : IPaymentService
         }
     }
 
-    private async Task CreateOrUpdateBalanceAsync(
+    private async Task<UserTrainingBalanceResponse?> CreateOrUpdateBalanceAsync(
         CreatePaymentRequest request,
         Guid adminId,
         CancellationToken cancellationToken)
@@ -237,7 +245,7 @@ public class PaymentService : IPaymentService
         switch (request.PaymentType)
         {
             case PurchaseType.Package12:
-                await _balanceService.CreatePackage12Async(
+                return await _balanceService.CreatePackage12Async(
                     request.UserId,
                     new CreatePackage12Request
                     {
@@ -246,10 +254,10 @@ public class PaymentService : IPaymentService
                     },
                     adminId,
                     cancellationToken);
-                break;
+                
 
             case PurchaseType.Package6:
-                await _balanceService.CreatePackage6Async(
+                return await _balanceService.CreatePackage6Async(
                     request.UserId,
                     new CreatePackage6Request
                     {
@@ -258,10 +266,10 @@ public class PaymentService : IPaymentService
                     },
                     adminId,
                     cancellationToken);
-                break;
+                
 
             case PurchaseType.Package16:
-                await _balanceService.CreatePackage16Async(
+                return await _balanceService.CreatePackage16Async(
                     request.UserId,
                     new CreatePackage16Request
                     {
@@ -270,7 +278,7 @@ public class PaymentService : IPaymentService
                     },
                     adminId,
                     cancellationToken);
-                break;
+                
 
             case PurchaseType.SingleSessions:
                 await _balanceService.AddSingleSessionsAsync(
@@ -282,7 +290,7 @@ public class PaymentService : IPaymentService
                     },
                     adminId,
                     cancellationToken);
-                break;
+                return null;
 
             default:
                 throw new BadRequestException("Tip uplate nije validan.");
@@ -358,9 +366,17 @@ public class PaymentService : IPaymentService
             return;
         }
 
-        balance.StartDate = payment.StartDate.Value;
-        balance.EndDate = payment.StartDate.Value.AddMonths(1);
+        var resolvedStartDate = await ResolveUpdatedMembershipStartDateAsync(
+            balance,
+            payment.StartDate.Value,
+            cancellationToken);
+
+        payment.StartDate = resolvedStartDate;
+        balance.StartDate = resolvedStartDate;
+        balance.EndDate = resolvedStartDate.AddMonths(1);
         balance.UpdatedAt = DateTime.UtcNow;
+
+        await ShiftOverlappingFutureMembershipsAsync(balance, cancellationToken);
     }
 
     private async Task<UserTrainingBalance?> FindRelatedBalanceAsync(
@@ -371,7 +387,9 @@ public class PaymentService : IPaymentService
             .Where(balance =>
                 balance.UserId == payment.UserId
                 && balance.PurchaseType == payment.PaymentType
-                && balance.TotalSessions == payment.NumberOfSessions);
+                && (!IsPackagePaymentType(payment.PaymentType)
+                    ? balance.TotalSessions == payment.NumberOfSessions
+                    : true));
 
         if (payment.CreatedByAdminId.HasValue)
         {
@@ -390,6 +408,123 @@ public class PaymentService : IPaymentService
 
         return await query
             .OrderByDescending(balance => balance.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<DateTime> ResolveUpdatedMembershipStartDateAsync(
+        UserTrainingBalance balance,
+        DateTime requestedStartDate,
+        CancellationToken cancellationToken)
+    {
+        var utcNow = DateTime.UtcNow;
+        var isCurrentlyActiveMembership = balance.RemainingSessions > 0
+            && balance.EndDate.HasValue
+            && balance.StartDate <= utcNow
+            && balance.EndDate.Value >= utcNow;
+
+        if (isCurrentlyActiveMembership)
+        {
+            return requestedStartDate;
+        }
+
+        var latestBlockingEndDate = await _dbContext.UserTrainingBalances
+            .AsNoTracking()
+            .Where(otherBalance =>
+                otherBalance.UserId == balance.UserId
+                && otherBalance.Id != balance.Id
+                && (otherBalance.PurchaseType == PurchaseType.Package6
+                    || otherBalance.PurchaseType == PurchaseType.Package12
+                    || otherBalance.PurchaseType == PurchaseType.Package16)
+                && otherBalance.IsActive
+                && !otherBalance.IsExpired
+                && otherBalance.RemainingSessions > 0
+                && otherBalance.EndDate.HasValue
+                && ((otherBalance.StartDate <= utcNow && otherBalance.EndDate.Value >= utcNow)
+                    || otherBalance.StartDate <= requestedStartDate))
+            .OrderByDescending(otherBalance => otherBalance.EndDate)
+            .Select(otherBalance => otherBalance.EndDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (latestBlockingEndDate.HasValue && requestedStartDate < latestBlockingEndDate.Value)
+        {
+            return latestBlockingEndDate.Value;
+        }
+
+        return requestedStartDate;
+    }
+
+    private async Task ShiftOverlappingFutureMembershipsAsync(
+        UserTrainingBalance sourceBalance,
+        CancellationToken cancellationToken)
+    {
+        if (!sourceBalance.EndDate.HasValue)
+        {
+            return;
+        }
+
+        var nextAllowedStartDate = sourceBalance.EndDate.Value;
+        var futureBalances = await _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == sourceBalance.UserId
+                && balance.Id != sourceBalance.Id
+                && (balance.PurchaseType == PurchaseType.Package6
+                    || balance.PurchaseType == PurchaseType.Package12
+                    || balance.PurchaseType == PurchaseType.Package16)
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0
+                && balance.EndDate.HasValue
+                && balance.StartDate >= sourceBalance.StartDate)
+            .OrderBy(balance => balance.StartDate)
+            .ThenBy(balance => balance.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        foreach (var futureBalance in futureBalances)
+        {
+            if (futureBalance.StartDate < nextAllowedStartDate)
+            {
+                var previousStartDate = futureBalance.StartDate;
+
+                futureBalance.StartDate = nextAllowedStartDate;
+                futureBalance.EndDate = nextAllowedStartDate.AddMonths(1);
+                futureBalance.UpdatedAt = DateTime.UtcNow;
+
+                var relatedPayment = await FindPaymentForBalanceStartDateAsync(
+                    futureBalance,
+                    previousStartDate,
+                    cancellationToken);
+
+                if (relatedPayment is not null)
+                {
+                    relatedPayment.StartDate = futureBalance.StartDate;
+                    relatedPayment.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            nextAllowedStartDate = futureBalance.EndDate!.Value;
+        }
+    }
+
+    private async Task<Payment?> FindPaymentForBalanceStartDateAsync(
+        UserTrainingBalance balance,
+        DateTime previousStartDate,
+        CancellationToken cancellationToken)
+    {
+        var baseNumberOfSessions = balance.PurchaseType switch
+        {
+            PurchaseType.Package6 => 6,
+            PurchaseType.Package12 => 12,
+            PurchaseType.Package16 => 16,
+            _ => balance.TotalSessions
+        };
+
+        return await _dbContext.Payments
+            .Where(payment =>
+                payment.UserId == balance.UserId
+                && payment.PaymentType == balance.PurchaseType
+                && payment.NumberOfSessions == baseNumberOfSessions)
+            .OrderByDescending(payment => payment.StartDate == previousStartDate)
+            .ThenByDescending(payment => payment.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
     }
 

@@ -98,7 +98,8 @@ public class BalanceService : IBalanceService
                 && (balance.PurchaseType == PurchaseType.Package6
                     || balance.PurchaseType == PurchaseType.Package12
                     || balance.PurchaseType == PurchaseType.Package16))
-            .OrderByDescending(balance => balance.CreatedAt)
+            .OrderByDescending(balance => balance.StartDate)
+            .ThenByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
 
         var paymentDates = await _dbContext.Payments
@@ -133,7 +134,8 @@ public class BalanceService : IBalanceService
         var balances = await _dbContext.UserTrainingBalances
             .AsNoTracking()
             .Where(balance => balance.UserId == userId)
-            .OrderByDescending(balance => balance.CreatedAt)
+            .OrderByDescending(balance => balance.StartDate)
+            .ThenByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
 
         return balances
@@ -316,6 +318,11 @@ public class BalanceService : IBalanceService
         balance.RemainingSessions -= 1;
         balance.UpdatedAt = DateTime.UtcNow;
 
+        if (IsMonthlyPackage(balance.PurchaseType) && balance.RemainingSessions <= 0)
+        {
+            balance.IsActive = false;
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(
@@ -384,6 +391,7 @@ public class BalanceService : IBalanceService
                 && (balance.PurchaseType == PurchaseType.Package6
                     || balance.PurchaseType == PurchaseType.Package12
                     || balance.PurchaseType == PurchaseType.Package16)
+                && balance.StartDate <= utcNow
                 && balance.EndDate >= utcNow);
     }
 
@@ -410,6 +418,7 @@ public class BalanceService : IBalanceService
         ValidateUserId(userId);
         ValidateStartDate(startDate);
         await EnsureUserExistsAsync(userId, cancellationToken);
+        var utcNow = DateTime.UtcNow;
 
         var hasActiveSamePackage = await _dbContext.UserTrainingBalances
             .AsNoTracking()
@@ -429,18 +438,24 @@ public class BalanceService : IBalanceService
                 purchaseType);
         }
 
+        var effectiveStartDate = await ResolveNewMonthlyPackageStartDateAsync(
+            userId,
+            startDate,
+            utcNow,
+            cancellationToken);
+
         var balance = new UserTrainingBalance
         {
             UserId = userId,
             PurchaseType = purchaseType,
             TotalSessions = totalSessions,
             RemainingSessions = totalSessions,
-            StartDate = startDate,
-            EndDate = startDate.AddMonths(1),
+            StartDate = effectiveStartDate,
+            EndDate = effectiveStartDate.AddMonths(1),
             IsActive = true,
             IsExpired = false,
             CreatedByAdminId = adminId,
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = utcNow,
             Notes = notes
         };
 
@@ -550,10 +565,54 @@ public class BalanceService : IBalanceService
     {
         var payment = paymentDates.FirstOrDefault(payment =>
             payment.PaymentType == balance.PurchaseType
-            && payment.NumberOfSessions == balance.TotalSessions
+            && payment.NumberOfSessions == GetBasePackageSessionCount(balance.PurchaseType)
             && payment.StartDate == balance.StartDate);
 
         return payment?.PaymentDate;
+    }
+
+    private async Task<DateTime> ResolveNewMonthlyPackageStartDateAsync(
+        Guid userId,
+        DateTime requestedStartDate,
+        DateTime utcNow,
+        CancellationToken cancellationToken)
+    {
+        var latestScheduledMembershipEndDate = await _dbContext.UserTrainingBalances
+            .AsNoTracking()
+            .Where(balance =>
+                balance.UserId == userId
+                && (balance.PurchaseType == PurchaseType.Package6
+                    || balance.PurchaseType == PurchaseType.Package12
+                    || balance.PurchaseType == PurchaseType.Package16)
+                && balance.IsActive
+                && !balance.IsExpired
+                && balance.RemainingSessions > 0
+                && balance.EndDate.HasValue
+                && (balance.StartDate > utcNow
+                    || (balance.StartDate <= utcNow && balance.EndDate >= utcNow)))
+            .OrderByDescending(balance => balance.EndDate)
+            .ThenByDescending(balance => balance.StartDate)
+            .Select(balance => balance.EndDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (latestScheduledMembershipEndDate.HasValue
+            && requestedStartDate < latestScheduledMembershipEndDate.Value)
+        {
+            return latestScheduledMembershipEndDate.Value;
+        }
+
+        return requestedStartDate;
+    }
+
+    private static int GetBasePackageSessionCount(PurchaseType purchaseType)
+    {
+        return purchaseType switch
+        {
+            PurchaseType.Package6 => 6,
+            PurchaseType.Package12 => 12,
+            PurchaseType.Package16 => 16,
+            _ => 0
+        };
     }
 
     private sealed record MembershipPaymentLookup(

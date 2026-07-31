@@ -129,12 +129,23 @@ public class DashboardService : IDashboardService
             .Where(payment =>
                 payment.UserId == userId
                 && payment.PaymentType == activeMembership.PurchaseType
-                && payment.NumberOfSessions == activeMembership.TotalSessions
+                && payment.NumberOfSessions == GetBasePackageSessionCount(activeMembership.PurchaseType)
                 && payment.StartDate == activeMembership.StartDate)
             .OrderByDescending(payment => payment.PaymentDate)
             .ThenByDescending(payment => payment.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
         return payment?.Id;
+    }
+
+    private static int GetBasePackageSessionCount(PurchaseType purchaseType)
+    {
+        return purchaseType switch
+        {
+            PurchaseType.Package6 => 6,
+            PurchaseType.Package12 => 12,
+            PurchaseType.Package16 => 16,
+            _ => 0
+        };
     }
 }

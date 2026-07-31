@@ -124,6 +124,48 @@ public class PaymentServiceTests
     }
 
     [Fact]
+    public async Task CreatePaymentAsync_WhenMonthlyMembershipAlreadyExists_ShouldPersistQueuedStartDate()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+        var user = CreateUser();
+        var activePackageStartDate = DateTime.UtcNow.AddDays(-7);
+        var activePackageEndDate = activePackageStartDate.AddMonths(1);
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 5,
+            StartDate = activePackageStartDate,
+            EndDate = activePackageEndDate,
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = activePackageStartDate
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = user.Id,
+                Amount = 3000,
+                PaymentDate = DateTime.UtcNow,
+                PaymentType = PurchaseType.Package6,
+                StartDate = DateTime.UtcNow
+            },
+            Guid.NewGuid());
+
+        response.StartDate.Should().Be(activePackageEndDate);
+
+        var createdPayment = await dbContext.Payments.OrderByDescending(payment => payment.CreatedAt).FirstAsync();
+        createdPayment.StartDate.Should().Be(activePackageEndDate);
+    }
+
+    [Fact]
     public async Task CreatePaymentAsync_WhenUserDoesNotExist_ShouldThrowNotFound()
     {
         var services = CreateServiceProvider();

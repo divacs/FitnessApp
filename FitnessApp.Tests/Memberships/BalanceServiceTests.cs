@@ -76,6 +76,59 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task CreatePackage6Async_WhenActiveOrScheduledMembershipExists_ShouldQueueNewMembershipAfterLastScheduledMembership()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var adminId = Guid.NewGuid();
+        var activePackageStartDate = DateTime.UtcNow.AddDays(-5);
+        var activePackageEndDate = activePackageStartDate.AddMonths(1);
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.AddRange(
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package12,
+                TotalSessions = 12,
+                RemainingSessions = 4,
+                StartDate = activePackageStartDate,
+                EndDate = activePackageEndDate,
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = activePackageStartDate
+            },
+            new UserTrainingBalance
+            {
+                Id = Guid.NewGuid(),
+                UserId = user.Id,
+                PurchaseType = PurchaseType.Package6,
+                TotalSessions = 6,
+                RemainingSessions = 6,
+                StartDate = activePackageEndDate,
+                EndDate = activePackageEndDate.AddMonths(1),
+                IsActive = true,
+                IsExpired = false,
+                CreatedAt = activePackageEndDate
+            });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.CreatePackage6Async(
+            user.Id,
+            new CreatePackage6Request
+            {
+                StartDate = DateTime.UtcNow
+            },
+            adminId);
+
+        response.StartDate.Should().Be(activePackageEndDate.AddMonths(1));
+        response.EndDate.Should().Be(response.StartDate.AddMonths(1));
+    }
+
+    [Fact]
     public async Task CreatePackage12Async_WhenStartDateIsMissing_ShouldThrowBadRequest()
     {
         var services = CreateServiceProvider();
@@ -445,6 +498,36 @@ public class BalanceServiceTests
         response.TotalRemainingSessions.Should().Be(9);
         response.HasAvailableSessions.Should().BeTrue();
         response.MembershipExpiresAt.Should().Be(packageEndDate);
+    }
+
+    [Fact]
+    public async Task GetCurrentBalanceAsync_WhenPackageStartsInFuture_ShouldNotTreatItAsActive()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package16,
+            TotalSessions = 16,
+            RemainingSessions = 16,
+            StartDate = DateTime.UtcNow.AddDays(2),
+            EndDate = DateTime.UtcNow.AddDays(32),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().BeNull();
+        response.HasAvailableSessions.Should().BeFalse();
+        response.MembershipExpiresAt.Should().BeNull();
     }
 
     [Fact]
