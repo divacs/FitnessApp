@@ -19,7 +19,7 @@ namespace FitnessApp.Tests.Trainings;
 public class TrainingServiceTests
 {
     [Fact]
-    public async Task GetUpcomingTrainingsAsync_ShouldReturnOnlyFutureTrainingsSortedByStartTimeDescending()
+    public async Task GetUpcomingTrainingsAsync_WhenActiveOnlyIsFalse_ShouldReturnAllTrainingsSortedByStartTimeDescending()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -32,26 +32,28 @@ public class TrainingServiceTests
 
         var response = await trainingService.GetUpcomingTrainingsAsync();
 
-        response.Should().HaveCount(2);
-        response.Select(training => training.Id).Should().Equal(laterTraining.Id, earlierTraining.Id);
+        response.Should().HaveCount(3);
+        response.Select(training => training.Id).Should().Equal(laterTraining.Id, earlierTraining.Id, pastTraining.Id);
     }
 
     [Fact]
-    public async Task GetUpcomingTrainingsAsync_ShouldExcludeCancelledTrainingsByDefault()
+    public async Task GetUpcomingTrainingsAsync_WhenActiveOnlyIsTrue_ShouldReturnOnlyFutureNonCancelledTrainingsSortedByStartTimeAscending()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
         var trainingService = services.GetRequiredService<ITrainingService>();
-        var activeTraining = CreateTraining(DateTime.UtcNow.AddDays(1), "Aktivan trening");
-        var cancelledTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Otkazan trening");
+        var earlierActiveTraining = CreateTraining(DateTime.UtcNow.AddDays(1), "Raniji aktivan trening");
+        var laterActiveTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Kasniji aktivan trening");
+        var cancelledTraining = CreateTraining(DateTime.UtcNow.AddDays(3), "Otkazan trening");
         cancelledTraining.IsCancelled = true;
-        dbContext.TrainingSessions.AddRange(activeTraining, cancelledTraining);
+        var pastTraining = CreateTraining(DateTime.UtcNow.AddDays(-1), "Prosli trening");
+        dbContext.TrainingSessions.AddRange(earlierActiveTraining, laterActiveTraining, cancelledTraining, pastTraining);
         await dbContext.SaveChangesAsync();
 
-        var response = await trainingService.GetUpcomingTrainingsAsync();
+        var response = await trainingService.GetUpcomingTrainingsAsync(activeOnly: true);
 
-        response.Should().ContainSingle();
-        response.Single().Id.Should().Be(activeTraining.Id);
+        response.Should().HaveCount(2);
+        response.Select(training => training.Id).Should().Equal(earlierActiveTraining.Id, laterActiveTraining.Id);
     }
 
     [Fact]
@@ -70,6 +72,24 @@ public class TrainingServiceTests
 
         response.Should().ContainSingle();
         response.Single().Id.Should().Be(cancelledTraining.Id);
+    }
+
+    [Fact]
+    public async Task GetUpcomingTrainingsAsync_WhenActiveOnlyIsTrueAndCancelledFilterIsTrue_ShouldReturnNoTrainings()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var cancelledTraining = CreateTraining(DateTime.UtcNow.AddDays(2), "Otkazan trening");
+        cancelledTraining.IsCancelled = true;
+        dbContext.TrainingSessions.Add(cancelledTraining);
+        await dbContext.SaveChangesAsync();
+
+        var response = await trainingService.GetUpcomingTrainingsAsync(
+            isCancelled: true,
+            activeOnly: true);
+
+        response.Should().BeEmpty();
     }
 
     [Fact]

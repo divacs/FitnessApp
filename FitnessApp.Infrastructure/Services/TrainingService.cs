@@ -33,7 +33,8 @@ public class TrainingService : ITrainingService
 
     public async Task<IReadOnlyCollection<TrainingCalendarResponse>> GetUpcomingTrainingsAsync(
         DateTime? date = null,
-        bool? isCancelled = false,
+        bool? isCancelled = null,
+        bool activeOnly = false,
         CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
@@ -41,7 +42,6 @@ public class TrainingService : ITrainingService
         var query = _dbContext.TrainingSessions
             .AsNoTracking()
             .Include(training => training.Reservations)
-            .Where(training => training.StartTime > utcNow)
             .AsQueryable();
 
         if (date.HasValue)
@@ -54,18 +54,33 @@ public class TrainingService : ITrainingService
                 && training.StartTime < dayEnd);
         }
 
+        if (activeOnly)
+        {
+            query = query.Where(training =>
+                training.StartTime > utcNow
+                && !training.IsCancelled);
+        }
+
         if (isCancelled.HasValue)
         {
             query = query.Where(training => training.IsCancelled == isCancelled.Value);
         }
 
-        var trainings = await query
-            .OrderByDescending(training => training.StartTime)
+        var trainings = await ApplyConditionalSorting(query, activeOnly)
             .ToListAsync(cancellationToken);
 
         return trainings
             .Select(training => training.ToCalendarResponse())
             .ToArray();
+    }
+
+    private static IQueryable<TrainingSession> ApplyConditionalSorting(
+        IQueryable<TrainingSession> query,
+        bool activeOnly)
+    {
+        return activeOnly
+            ? query.OrderBy(training => training.StartTime)
+            : query.OrderByDescending(training => training.StartTime);
     }
 
     public async Task<TrainingSessionResponse> GetTrainingByIdAsync(

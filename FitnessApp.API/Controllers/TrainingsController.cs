@@ -22,12 +22,14 @@ public class TrainingsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<TrainingCalendarResponse>>>> GetTrainings(
         [FromQuery] DateTime? date = null,
-        [FromQuery] bool? isCancelled = false,
+        [FromQuery] bool? isCancelled = null,
+        [FromQuery] bool activeOnly = false,
         CancellationToken cancellationToken = default)
     {
         var trainings = await _trainingService.GetUpcomingTrainingsAsync(
             date,
             isCancelled,
+            activeOnly,
             cancellationToken);
 
         return Ok(ApiResponse<IReadOnlyCollection<TrainingCalendarResponse>>.Success(trainings));

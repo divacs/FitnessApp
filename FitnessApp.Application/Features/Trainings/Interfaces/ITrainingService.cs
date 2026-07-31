@@ -6,7 +6,8 @@ public interface ITrainingService
 {
     Task<IReadOnlyCollection<TrainingCalendarResponse>> GetUpcomingTrainingsAsync(
         DateTime? date = null,
-        bool? isCancelled = false,
+        bool? isCancelled = null,
+        bool activeOnly = false,
         CancellationToken cancellationToken = default);
 
     Task<TrainingSessionResponse> GetTrainingByIdAsync(
