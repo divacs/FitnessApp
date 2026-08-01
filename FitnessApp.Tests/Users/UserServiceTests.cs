@@ -160,7 +160,8 @@ public class UserServiceTests
         var act = () => userService.ChangePasswordAsync(user.Id, new ChangePasswordRequest
         {
             CurrentPassword = "WrongPassword123",
-            NewPassword = "NewPassword123"
+            NewPassword = "NewPassword123",
+            ConfirmPassword = "NewPassword123"
         });
 
         await act.Should().ThrowAsync<BadRequestException>()
@@ -178,7 +179,8 @@ public class UserServiceTests
         await userService.ChangePasswordAsync(user.Id, new ChangePasswordRequest
         {
             CurrentPassword = Password,
-            NewPassword = "NewPassword123"
+            NewPassword = "NewPassword123",
+            ConfirmPassword = "NewPassword123"
         });
 
         var updatedUser = await userManager.FindByIdAsync(user.Id.ToString());
@@ -285,6 +287,15 @@ public class UserServiceTests
         {
             VerifiedEmails.Add((toEmail, firstName));
 
+            return Task.CompletedTask;
+        }
+
+        public Task SendPasswordResetEmailAsync(
+            string toEmail,
+            string firstName,
+            string resetUrl,
+            CancellationToken cancellationToken = default)
+        {
             return Task.CompletedTask;
         }
 

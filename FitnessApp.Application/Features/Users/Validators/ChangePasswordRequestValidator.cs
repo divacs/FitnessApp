@@ -16,5 +16,11 @@ public class ChangePasswordRequestValidator : AbstractValidator<ChangePasswordRe
             .WithMessage("Nova lozinka je obavezna.")
             .MinimumLength(8)
             .WithMessage("Nova lozinka mora imati najmanje 8 karaktera.");
+
+        RuleFor(x => x.ConfirmPassword)
+            .NotEmpty()
+            .WithMessage("Potvrda lozinke je obavezna.")
+            .Equal(x => x.NewPassword)
+            .WithMessage("Lozinke se ne podudaraju.");
     }
 }

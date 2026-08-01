@@ -1,6 +1,8 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Auth.DTOs;
 using FitnessApp.Application.Features.Auth.Interfaces;
+using FitnessApp.Application.Features.Emails.Interfaces;
+using FitnessApp.Application.Settings;
 using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
@@ -9,11 +11,12 @@ using FitnessApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace FitnessApp.Infrastructure.Services;
 
 /// <summary>
-/// Implements registration, login, refresh-token rotation, logout, and current-user retrieval.
+/// Implements registration, login, password recovery, refresh-token rotation, logout, and current-user retrieval.
 /// </summary>
 public class AuthService : IAuthService
 {
@@ -21,6 +24,8 @@ public class AuthService : IAuthService
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly AppDbContext _dbContext;
     private readonly ITokenService _tokenService;
+    private readonly IEmailService _emailService;
+    private readonly AppSettings _appSettings;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -28,12 +33,16 @@ public class AuthService : IAuthService
         SignInManager<ApplicationUser> signInManager,
         AppDbContext dbContext,
         ITokenService tokenService,
+        IEmailService emailService,
+        IOptions<AppSettings> appSettings,
         ILogger<AuthService> logger)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _dbContext = dbContext;
         _tokenService = tokenService;
+        _emailService = emailService;
+        _appSettings = appSettings.Value;
         _logger = logger;
     }
 
@@ -105,6 +114,62 @@ public class AuthService : IAuthService
         return await CreateAuthResponseAndRefreshTokenAsync(user, cancellationToken: cancellationToken);
     }
 
+    public async Task ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        if (user is null || user.IsDeleted || string.IsNullOrWhiteSpace(user.Email))
+        {
+            return;
+        }
+
+        var resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+        var resetUrl = BuildPasswordResetUrl(user.Email, resetToken);
+
+        await _emailService.SendPasswordResetEmailAsync(
+            user.Email,
+            user.FirstName,
+            resetUrl,
+            cancellationToken);
+
+        _logger.LogInformation("Password reset email requested for user {UserId}.", user.Id);
+    }
+
+    public async Task ResetPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var user = await _userManager.FindByEmailAsync(request.Email);
+
+        if (user is null || user.IsDeleted)
+        {
+            throw new BadRequestException(
+                "Reset lozinke nije uspeo.",
+                ["Link za reset lozinke nije validan ili je istekao."]);
+        }
+
+        var result = await _userManager.ResetPasswordAsync(
+            user,
+            request.ResetToken,
+            request.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            throw MapResetPasswordFailure(result);
+        }
+
+        user.UpdatedAt = DateTime.UtcNow;
+        await _userManager.UpdateAsync(user);
+
+        _logger.LogInformation("Password reset completed for user {UserId}.", user.Id);
+    }
+
     public async Task<AuthResponse> RefreshTokenAsync(
         RefreshTokenRequest request,
         CancellationToken cancellationToken = default)
@@ -127,7 +192,6 @@ public class AuthService : IAuthService
 
         if (refreshToken.IsRevoked)
         {
-            // Reuse of an already rotated token is treated as suspicious and invalidates the user's remaining active refresh tokens.
             _logger.LogWarning(
                 "Rejected reused or revoked refresh token for user {UserId}.",
                 refreshToken.UserId);
@@ -139,7 +203,6 @@ public class AuthService : IAuthService
 
         await EnsureUserCanRefreshAsync(refreshToken.User, cancellationToken);
 
-        // Rotation always revokes the old token and persists a newly issued replacement token.
         var newRefreshToken = _tokenService.GenerateRefreshToken();
         refreshToken.RevokedAt = DateTime.UtcNow;
         refreshToken.ReplacedByToken = newRefreshToken;
@@ -242,6 +305,27 @@ public class AuthService : IAuthService
         var roles = await _userManager.GetRolesAsync(user);
 
         return roles.FirstOrDefault() ?? string.Empty;
+    }
+
+    private string BuildPasswordResetUrl(string email, string resetToken)
+    {
+        var frontendUrl = _appSettings.FrontendUrl.TrimEnd('/');
+        var encodedEmail = Uri.EscapeDataString(email);
+        var encodedToken = Uri.EscapeDataString(resetToken);
+
+        return $"{frontendUrl}/reset-password?email={encodedEmail}&token={encodedToken}";
+    }
+
+    private static BadRequestException MapResetPasswordFailure(IdentityResult result)
+    {
+        var errors = result.Errors
+            .Select(error => error.Code == "InvalidToken"
+                ? "Link za reset lozinke nije validan ili je istekao."
+                : error.Description)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        return new BadRequestException("Reset lozinke nije uspelo.", errors);
     }
 
     private async Task EnsureUserCanRefreshAsync(

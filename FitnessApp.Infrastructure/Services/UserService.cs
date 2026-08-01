@@ -117,11 +117,20 @@ public class UserService : IUserService
         ChangePasswordRequest request,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null || user.IsDeleted)
         {
             throw new NotFoundException("Korisnik nije pronađen.");
+        }
+
+        if (!string.Equals(request.NewPassword, request.ConfirmPassword, StringComparison.Ordinal))
+        {
+            throw new BadRequestException(
+                "Promena lozinke nije uspela.",
+                ["Lozinke se ne podudaraju."]);
         }
 
         var result = await _userManager.ChangePasswordAsync(
@@ -223,5 +232,4 @@ public class UserService : IUserService
             UpdatedAt = user.UpdatedAt
         };
     }
-
 }

@@ -22,6 +22,20 @@ public interface IAuthService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Sends a password-reset link when the email belongs to an existing user.
+    /// </summary>
+    Task ForgotPasswordAsync(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resets a user's password using the ASP.NET Identity reset token.
+    /// </summary>
+    Task ResetPasswordAsync(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Rotates a valid refresh token and returns a replacement token pair.
     /// </summary>
     Task<AuthResponse> RefreshTokenAsync(

@@ -52,6 +52,38 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Šalje link za reset lozinke ako nalog postoji.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> ForgotPassword(
+        ForgotPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _authService.ForgotPasswordAsync(request, cancellationToken);
+
+        return Ok(ApiResponse<EmptyResponse>.Success(
+            EmptyResponse.Value,
+            "Ako nalog postoji, uputstvo za reset lozinke je poslato na email."));
+    }
+
+    /// <summary>
+    /// Resetuje lozinku na osnovu validnog reset tokena.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> ResetPassword(
+        ResetPasswordRequest request,
+        CancellationToken cancellationToken)
+    {
+        await _authService.ResetPasswordAsync(request, cancellationToken);
+
+        return Ok(ApiResponse<EmptyResponse>.Success(
+            EmptyResponse.Value,
+            "Lozinka je uspešno resetovana."));
+    }
+
+    /// <summary>
     /// Osvežava JWT sesiju na osnovu validnog refresh token-a.
     /// </summary>
     [HttpPost("refresh-token")]

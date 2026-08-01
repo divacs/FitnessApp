@@ -115,6 +115,71 @@ public class EmailService : IEmailService
             cancellationToken);
     }
 
+    public Task SendPasswordResetEmailAsync(
+        string toEmail,
+        string firstName,
+        string resetUrl,
+        CancellationToken cancellationToken = default)
+    {
+        const string subject = "Reset lozinke";
+        var encodedFirstName = WebUtility.HtmlEncode(firstName);
+        var encodedResetUrl = WebUtility.HtmlEncode(resetUrl);
+        var plainTextBody = $"""
+            Zdravo {firstName},
+
+            Zatražen je reset lozinke za vaš nalog. Otvorite sledeći link da postavite novu lozinku:
+            {resetUrl}
+
+            Ako niste vi poslali zahtev, slobodno ignorišite ovu poruku.
+
+            Sara - FitnessApp
+            """;
+
+        return SendAsync(
+            toEmail,
+            subject,
+            $$"""
+            <!doctype html>
+            <html lang="sr">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Reset lozinke</title>
+            </head>
+            <body style="margin:0;padding:0;background:#FFF8F3;font-family:Arial,sans-serif;color:#2F2933;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FFF8F3;padding:24px 12px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:8px;padding:28px;border:1px solid #F3E6DD;">
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 8px;color:#9B6EF3;font-size:14px;font-weight:bold;">Sara - FitnessApp</p>
+                          <h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;color:#2F2933;">Reset lozinke</h1>
+                          <p style="margin:0 0 14px;font-size:16px;line-height:1.6;">Zdravo {{encodedFirstName}},</p>
+                          <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">
+                            Zatražen je reset lozinke za vaš nalog. Kliknite na dugme ispod da postavite novu lozinku.
+                          </p>
+                          <p style="margin:0 0 18px;">
+                            <a href="{{encodedResetUrl}}" style="display:inline-block;padding:12px 20px;background:#9B6EF3;color:#FFFFFF;text-decoration:none;border-radius:999px;font-weight:bold;">
+                              Resetuj lozinku
+                            </a>
+                          </p>
+                          <p style="margin:0;font-size:14px;line-height:1.6;color:#6B6470;">
+                            Ako niste vi poslali zahtev, slobodno ignorišite ovu poruku.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """,
+            plainTextBody,
+            cancellationToken);
+    }
+
     public Task SendMembershipExpiringEmailAsync(
         string toEmail,
         string firstName,

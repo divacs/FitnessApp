@@ -1,6 +1,7 @@
 using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Features.Auth.DTOs;
 using FitnessApp.Application.Features.Auth.Interfaces;
+using FitnessApp.Application.Features.Emails.Interfaces;
 using FitnessApp.Application.Settings;
 using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
@@ -20,6 +21,49 @@ namespace FitnessApp.Tests.Auth;
 public class AuthServiceTests
 {
     private const string Password = "Password123";
+
+    [Fact]
+    public async Task ForgotPasswordAsync_WhenUserExists_ShouldSendResetEmailWithEncodedToken()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var authService = services.GetRequiredService<IAuthService>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+
+        await authService.ForgotPasswordAsync(new ForgotPasswordRequest
+        {
+            Email = user.Email!
+        });
+
+        emailService.PasswordResetEmails.Should().ContainSingle();
+        var email = emailService.PasswordResetEmails.Single();
+        email.ToEmail.Should().Be(user.Email);
+        email.ResetUrl.Should().StartWith("http://localhost:4200/reset-password?email=");
+        email.ResetUrl.Should().Contain(Uri.EscapeDataString(user.Email!));
+        email.ResetUrl.Should().Contain("&token=");
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_WhenTokenIsValid_ShouldUpdatePassword()
+    {
+        var services = CreateServiceProvider();
+        var user = await CreateUserAsync(services, UserStatus.Verified);
+        var authService = services.GetRequiredService<IAuthService>();
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+        await authService.ResetPasswordAsync(new ResetPasswordRequest
+        {
+            Email = user.Email!,
+            ResetToken = token,
+            NewPassword = "NewPassword123",
+            ConfirmPassword = "NewPassword123"
+        });
+
+        var updatedUser = await userManager.FindByIdAsync(user.Id.ToString());
+        updatedUser.Should().NotBeNull();
+        (await userManager.CheckPasswordAsync(updatedUser!, "NewPassword123")).Should().BeTrue();
+    }
 
     [Fact]
     public async Task LoginAsync_WhenUserIsVerified_ShouldCreateRefreshToken()
@@ -249,6 +293,10 @@ public class AuthServiceTests
             ExpirationMinutes = 60,
             RefreshTokenExpirationDays = 7
         }));
+        services.AddSingleton(Options.Create(new AppSettings
+        {
+            FrontendUrl = "http://localhost:4200"
+        }));
 
         services.AddDbContext<AppDbContext>(options =>
         {
@@ -268,6 +316,8 @@ public class AuthServiceTests
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
 
+        services.AddSingleton<FakeEmailService>();
+        services.AddSingleton<IEmailService>(provider => provider.GetRequiredService<FakeEmailService>());
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IAuthService, AuthService>();
 
@@ -303,5 +353,46 @@ public class AuthServiceTests
         roleResult.Succeeded.Should().BeTrue(string.Join("; ", roleResult.Errors.Select(x => x.Description)));
 
         return user;
+    }
+
+    private sealed class FakeEmailService : IEmailService
+    {
+        public List<(string ToEmail, string FirstName, string ResetUrl)> PasswordResetEmails { get; } = new();
+
+        public Task SendAsync(
+            string toEmail,
+            string subject,
+            string htmlBody,
+            string plainTextBody,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SendRegistrationPendingApprovalEmailAsync(
+            string toEmail,
+            string firstName,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SendUserVerifiedEmailAsync(
+            string toEmail,
+            string firstName,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task SendPasswordResetEmailAsync(
+            string toEmail,
+            string firstName,
+            string resetUrl,
+            CancellationToken cancellationToken = default)
+        {
+            PasswordResetEmails.Add((toEmail, firstName, resetUrl));
+            return Task.CompletedTask;
+        }
+
+        public Task SendMembershipExpiringEmailAsync(
+            string toEmail,
+            string firstName,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

@@ -92,6 +92,13 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             CancellationToken cancellationToken = default)
             => Task.CompletedTask;
 
+        public Task SendPasswordResetEmailAsync(
+            string toEmail,
+            string firstName,
+            string resetUrl,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
         public Task SendMembershipExpiringEmailAsync(
             string toEmail,
             string firstName,

@@ -201,6 +201,15 @@ public class MembershipExpirationReminderJobTests
             return Task.CompletedTask;
         }
 
+        public Task SendPasswordResetEmailAsync(
+            string toEmail,
+            string firstName,
+            string resetUrl,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
         public Task SendMembershipExpiringEmailAsync(
             string toEmail,
             string firstName,
