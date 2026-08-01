@@ -47,11 +47,12 @@ public class UserService : IUserService
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var normalizedSearch = search.Trim();
+            var normalizedSearch = search.Trim().ToLower();
             query = query.Where(user =>
-                user.FirstName.Contains(normalizedSearch)
-                || user.LastName.Contains(normalizedSearch)
-                || (user.Email != null && user.Email.Contains(normalizedSearch)));
+                user.FirstName.ToLower().Contains(normalizedSearch)
+                || user.LastName.ToLower().Contains(normalizedSearch)
+                || (user.FirstName + " " + user.LastName).ToLower().Contains(normalizedSearch)
+                || (user.LastName + " " + user.FirstName).ToLower().Contains(normalizedSearch));
         }
 
         var totalCount = await query.CountAsync(cancellationToken);
