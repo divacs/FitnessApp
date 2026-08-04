@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using System.Net;
 
 namespace FitnessApp.Infrastructure.Services;
 
@@ -26,6 +27,7 @@ public class AuthService : IAuthService
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
     private readonly AppSettings _appSettings;
+    private readonly AdminSeedSettings _adminSeedSettings;
     private readonly ILogger<AuthService> _logger;
 
     public AuthService(
@@ -35,6 +37,7 @@ public class AuthService : IAuthService
         ITokenService tokenService,
         IEmailService emailService,
         IOptions<AppSettings> appSettings,
+        IOptions<AdminSeedSettings> adminSeedSettings,
         ILogger<AuthService> logger)
     {
         _userManager = userManager;
@@ -43,6 +46,7 @@ public class AuthService : IAuthService
         _tokenService = tokenService;
         _emailService = emailService;
         _appSettings = appSettings.Value;
+        _adminSeedSettings = adminSeedSettings.Value;
         _logger = logger;
     }
 
@@ -85,6 +89,8 @@ public class AuthService : IAuthService
             _logger.LogError("Failed to assign default role to user {UserId}.", user.Id);
             throw roleResult.ToBadRequestException("Dodela korisničke role nije uspela.");
         }
+
+        await SendAdminRegistrationNotificationAsync(user, cancellationToken);
 
         return await MapCurrentUserResponseAsync(user);
     }
@@ -326,6 +332,97 @@ public class AuthService : IAuthService
             .ToArray();
 
         return new BadRequestException("Reset lozinke nije uspelo.", errors);
+    }
+
+    private async Task SendAdminRegistrationNotificationAsync(
+        ApplicationUser user,
+        CancellationToken cancellationToken)
+    {
+        var registrationTimestamp = user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+        var fullName = $"{user.FirstName} {user.LastName}".Trim();
+        var adminEmails = (await _userManager.GetUsersInRoleAsync(RoleConstants.Admin))
+            .Where(admin => !admin.IsDeleted && !string.IsNullOrWhiteSpace(admin.Email))
+            .Select(admin => admin.Email!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (adminEmails.Count == 0 && !string.IsNullOrWhiteSpace(_adminSeedSettings.Email))
+        {
+            adminEmails.Add(_adminSeedSettings.Email);
+        }
+
+        if (adminEmails.Count == 0)
+        {
+            return;
+        }
+
+        var htmlBody = BuildAdminRegistrationNotificationHtml(fullName, user.Email ?? string.Empty, registrationTimestamp);
+        var plainTextBody = BuildAdminRegistrationNotificationPlainText(fullName, user.Email ?? string.Empty, registrationTimestamp);
+
+        foreach (var adminEmail in adminEmails)
+        {
+            await _emailService.SendAsync(
+                adminEmail,
+                "Novi korisnik se registrovao",
+                htmlBody,
+                plainTextBody,
+                cancellationToken);
+        }
+    }
+
+    private static string BuildAdminRegistrationNotificationHtml(
+        string fullName,
+        string email,
+        string registrationTimestamp)
+    {
+        var encodedFullName = WebUtility.HtmlEncode(fullName);
+        var encodedEmail = WebUtility.HtmlEncode(email);
+        var encodedRegisteredAt = WebUtility.HtmlEncode(registrationTimestamp);
+
+        return $$"""
+            <!doctype html>
+            <html lang="sr">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Novi korisnik se registrovao</title>
+            </head>
+            <body style="margin:0;padding:0;background:#FFF8F3;font-family:Arial,sans-serif;color:#2F2933;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#FFF8F3;padding:24px 12px;">
+                <tr>
+                  <td align="center">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#FFFFFF;border-radius:8px;padding:28px;border:1px solid #F3E6DD;">
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 8px;color:#9B6EF3;font-size:14px;font-weight:bold;">Sara - FitnessApp</p>
+                          <h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;color:#2F2933;">Novi korisnik se registrovao</h1>
+                          <p style="margin:0 0 12px;font-size:16px;line-height:1.6;">Potrebno je da ga verifikujete.</p>
+                          <p style="margin:0 0 8px;font-size:16px;line-height:1.6;"><strong>Ime i prezime:</strong> {{encodedFullName}}</p>
+                          <p style="margin:0 0 8px;font-size:16px;line-height:1.6;"><strong>Email:</strong> {{encodedEmail}}</p>
+                          <p style="margin:0;font-size:16px;line-height:1.6;"><strong>Datum registracije:</strong> {{encodedRegisteredAt}}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </body>
+            </html>
+            """;
+    }
+
+    private static string BuildAdminRegistrationNotificationPlainText(
+        string fullName,
+        string email,
+        string registrationTimestamp)
+    {
+        return $"""
+            novi koisnik se registrovao, potrebno je da ga verifikujete.
+
+            Ime i prezime: {fullName}
+            Email: {email}
+            Datum registracije: {registrationTimestamp}
+            """;
     }
 
     private async Task EnsureUserCanRefreshAsync(
