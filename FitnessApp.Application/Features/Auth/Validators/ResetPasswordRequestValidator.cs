@@ -23,7 +23,7 @@ public class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequ
             .MinimumLength(8)
             .WithMessage("Nova lozinka mora imati najmanje 8 karaktera.");
 
-        RuleFor(x => x.ConfirmPassword)
+        RuleFor(x => x.PasswordConfirmation)
             .NotEmpty()
             .WithMessage("Potvrda lozinke je obavezna.")
             .Equal(x => x.NewPassword)
