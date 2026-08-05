@@ -34,13 +34,13 @@ public class BiweeklyTrainingSessionSeedingJobTests
         dbContext.TrainingSessions.Add(new TrainingSession
         {
             Id = Guid.NewGuid(),
-            Title = "Retro Fitness",
+            Title = "Old Template Title",
             Description = "Grupni trening",
             StartTime = existingUtcStartTime,
             EndTime = existingUtcStartTime.AddMinutes(75),
             Capacity = 14,
             TrainerName = "Sara",
-            Location = "Studio",
+            Location = "Old Studio",
             CreatedAt = utcNow.UtcDateTime.AddDays(-1),
             UpdatedAt = utcNow.UtcDateTime.AddDays(-1)
         });
@@ -54,12 +54,14 @@ public class BiweeklyTrainingSessionSeedingJobTests
 
         trainings.Should().HaveCount(6);
         trainings.Count(training => training.StartTime == existingUtcStartTime).Should().Be(1);
-        trainings.Should().OnlyContain(training => training.Title == "Retro Fitness");
+        trainings.Count(training => training.Title == "Full Body Fitness").Should().Be(5);
+        trainings.Count(training => training.Location == "Srnetička 4").Should().Be(5);
         trainings.Should().OnlyContain(training => training.Description == "Grupni trening");
         trainings.Should().OnlyContain(training => training.Capacity == 14);
         trainings.Should().OnlyContain(training => training.TrainerName == "Sara");
-        trainings.Should().OnlyContain(training => training.Location == "Studio");
         trainings.Should().OnlyContain(training => training.EndTime - training.StartTime == TimeSpan.FromMinutes(75));
+        trainings.Single(training => training.StartTime == existingUtcStartTime).Title.Should().Be("Old Template Title");
+        trainings.Single(training => training.StartTime == existingUtcStartTime).Location.Should().Be("Old Studio");
     }
 
     [Fact]

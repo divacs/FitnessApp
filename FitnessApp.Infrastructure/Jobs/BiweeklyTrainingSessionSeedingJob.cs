@@ -16,6 +16,8 @@ public class BiweeklyTrainingSessionSeedingJob
     private const string DefaultTimeZoneId = "Europe/Belgrade";
     private const string WindowsFallbackTimeZoneId = "Central Europe Standard Time";
     private const string FallbackTrainingTitle = "Trening";
+    private const string FixedTrainingTitle = "Full Body Fitness";
+    private const string FixedTrainingLocation = "Srnetička 4";
     private static readonly DateOnly BiweeklyAnchorDate = new(2026, 7, 31);
     private static readonly TrainingSlot[] DefaultSchedule =
     [
@@ -179,13 +181,13 @@ public class BiweeklyTrainingSessionSeedingJob
 
             requests.Add(new CreateTrainingSessionRequest
             {
-                Title = template.Title,
+                Title = FixedTrainingTitle,
                 Description = template.Description,
                 StartTime = candidate.UtcStartTime,
                 EndTime = candidate.UtcStartTime.Add(template.Duration),
                 Capacity = template.Capacity,
                 TrainerName = template.TrainerName,
-                Location = template.Location
+                Location = FixedTrainingLocation
             });
 
             existingUtcStartTimes.Add(candidate.UtcStartTime);
