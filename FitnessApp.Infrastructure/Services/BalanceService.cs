@@ -150,18 +150,107 @@ public class BalanceService : IBalanceService
         [
             new AvailablePackageResponse
             {
+                Title = "Paket 6 termina",
+                Subtitle = "Za fleksibilan ritam treninga.",
+                Description = "Paket važi 30 dana od dana aktivacije.",
+                LearnMore = "Saznaj više →",
+                LearnMoreDescription = "Za fleksibilan ritam treninga i planiranje unapred.",
+                Details =
+                [
+                    "Šta uključuje: 6 grupnih treninga u toku meseca.",
+                    "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
+                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Na raspolaganju su do 4 treninga nedeljno.",
+                    "Prenos termina: Neiskorišćeni termini se ne prenose u naredni mesec.",
+                    "Cena: Na upit."
+                ],
+                Badge = null,
+                Features =
+                [
+                    "6 grupnih treninga u toku meseca",
+                    "Do 4 treninga nedeljno",
+                    "Bez prenosa neiskorišćenih termina"
+                ],
+                Price = "Na upit",
                 PurchaseType = PurchaseType.Package6,
                 NumberOfSessions = 6
             },
             new AvailablePackageResponse
             {
+                Title = "Paket 12 termina",
+                Subtitle = "Idealna ravnoteža između kontinuiteta i fleksibilnosti.",
+                Description = "Paket važi 30 dana od dana aktivacije.",
+                LearnMore = "Saznaj više →",
+                LearnMoreDescription = "Najpopularniji izbor za redovan i fleksibilan ritam treniranja.",
+                Details =
+                [
+                    "Šta uključuje: 12 grupnih treninga u toku meseca.",
+                    "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
+                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Možete trenirati do 4 puta nedeljno.",
+                    "Prenos termina: Do 2 neiskorišćena termina mogu se preneti u naredni mesec uz obnovu paketa.",
+                    "Cena: Na upit."
+                ],
+                Badge = "Najpopularniji izbor",
+                Features =
+                [
+                    "12 grupnih treninga u toku meseca",
+                    "Do 4 treninga nedeljno",
+                    "Do 2 preneta termina uz obnovu"
+                ],
+                Price = "Na upit",
                 PurchaseType = PurchaseType.Package12,
                 NumberOfSessions = 12
             },
+            // new AvailablePackageResponse
+            // {
+            //     Title = "Paket 16 termina",
+            //     Subtitle = "Za maksimalne rezultate.",
+            //     Description = "Paket važi 30 dana od dana aktivacije.",
+            //     LearnMore = "Saznaj više →",
+            //     LearnMoreDescription = "Za korisnike kojima je važan redovan ritam i veći broj treninga.",
+            //     Details =
+            //     [
+            //         "Šta uključuje: 16 grupnih treninga u toku meseca.",
+            //         "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
+            //         "Korišćenje termina: Paket je namenjen redovnom treniranju i omogućava do 4 treninga nedeljno.",
+            //         "Prenos termina: Do 2 neiskorišćena termina mogu se preneti u naredni mesec uz obnovu paketa.",
+            //         "Cena: Na upit."
+            //     ],
+            //     Badge = null,
+            //     Features =
+            //     [
+            //         "16 grupnih treninga u toku meseca",
+            //         "Do 4 treninga nedeljno",
+            //         "Do 2 preneta termina uz obnovu"
+            //     ],
+            //     Price = "Na upit",
+            //     PurchaseType = PurchaseType.Package16,
+            //     NumberOfSessions = 16
+            // },
             new AvailablePackageResponse
             {
-                PurchaseType = PurchaseType.Package16,
-                NumberOfSessions = 16
+                Title = "Pojedinačni trening",
+                Subtitle = "Fleksibilna opcija bez članarine.",
+                Description = "Trening se može iskoristiti u roku od 30 dana od kupovine.",
+                LearnMore = "Saznaj više →",
+                LearnMoreDescription = "Namenjen je svima koji ne žele mesečnu obavezu i žele da treniraju kada im raspored dozvoli.",
+                Details =
+                [
+                    "Šta uključuje: 1 grupni trening.",
+                    "Trajanje: Trening se može iskoristiti u roku od 30 dana od kupovine.",
+                    "Fleksibilnost: Namenjen je svima koji ne žele mesečnu obavezu i žele da treniraju kada im raspored dozvoli.",
+                    "Zakazivanje: Termin se rezerviše unapred putem aplikacije.",
+                    "Cena: Na upit."
+                ],
+                Badge = null,
+                Features =
+                [
+                    "1 grupni trening",
+                    "Bez mesečne obaveze",
+                    "Rezervacija unapred putem aplikacije"
+                ],
+                Price = "Na upit",
+                PurchaseType = PurchaseType.SingleSessions,
+                NumberOfSessions = 1
             }
         ];
 
