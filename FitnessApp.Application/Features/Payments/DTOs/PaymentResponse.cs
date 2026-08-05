@@ -18,6 +18,8 @@ public class PaymentResponse
 
     public PurchaseType PaymentType { get; init; }
 
+    public string PackageName { get; init; } = string.Empty;
+
     public int NumberOfSessions { get; init; }
 
     public string? Note { get; init; }
