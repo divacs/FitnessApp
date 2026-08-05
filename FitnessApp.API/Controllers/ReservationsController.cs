@@ -52,4 +52,17 @@ public class ReservationsController : ControllerBase
 
         return Ok(ApiResponse<ReservationResponse>.Success(reservation, "Rezervacija je uspešno otkazana."));
     }
+
+    /// <summary>
+    /// Vraća sve aktivne buduće rezervacije trenutno ulogovanog korisnika.
+    /// </summary>
+    [HttpGet("my/upcoming")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyCollection<ReservationResponse>>>> GetMyUpcomingReservations(
+        CancellationToken cancellationToken)
+    {
+        var userId = User.GetUserId();
+        var reservations = await _reservationService.GetUpcomingReservationsAsync(userId, cancellationToken);
+
+        return Ok(ApiResponse<IReadOnlyCollection<ReservationResponse>>.Success(reservations));
+    }
 }
