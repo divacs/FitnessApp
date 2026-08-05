@@ -3,6 +3,7 @@ using FitnessApp.Infrastructure.Persistence;
 using Hangfire;
 using Hangfire.Common;
 using Hangfire.States;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +11,19 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using System.Linq;
+using System.Text;
 
 namespace FitnessApp.Tests.Auth;
 
 public sealed class AuthApiFactory : WebApplicationFactory<Program>
 {
+    private const string JwtIssuer = "FitnessApp.IntegrationTests";
+    private const string JwtAudience = "FitnessApp.IntegrationTests";
+    private const string JwtSecret = "integration-test-secret-that-is-long-enough";
+
     private readonly string _databaseName = $"auth-tests-{Guid.NewGuid():N}";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -27,9 +35,9 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             configurationBuilder.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=FitnessAppAuthTests;Trusted_Connection=True;",
-                ["JwtSettings:Issuer"] = "FitnessApp.IntegrationTests",
-                ["JwtSettings:Audience"] = "FitnessApp.IntegrationTests",
-                ["JwtSettings:Secret"] = "integration-test-secret-that-is-long-enough",
+                ["JwtSettings:Issuer"] = JwtIssuer,
+                ["JwtSettings:Audience"] = JwtAudience,
+                ["JwtSettings:Secret"] = JwtSecret,
                 ["JwtSettings:ExpirationMinutes"] = "60",
                 ["JwtSettings:RefreshTokenExpirationDays"] = "7",
                 ["AppSettings:FrontendUrl"] = "http://localhost:4200",
@@ -63,6 +71,20 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
             {
                 options.UseInMemoryDatabase(_databaseName);
             });
+
+            services.PostConfigure<JwtBearerOptions>(
+                JwtBearerDefaults.AuthenticationScheme,
+                options => options.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = JwtIssuer,
+                    ValidateAudience = true,
+                    ValidAudience = JwtAudience,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JwtSecret)),
+                    ClockSkew = TimeSpan.Zero
+                });
 
             services.AddSingleton<IRecurringJobManager, NoOpRecurringJobManager>();
             services.AddSingleton<IBackgroundJobClient, NoOpBackgroundJobClient>();
