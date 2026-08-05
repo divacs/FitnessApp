@@ -22,18 +22,20 @@ public static class NotificationMappings
 
     public static NotificationResponse ToResponse(this UserNotification userNotification)
     {
+        var notification = userNotification.Notification;
+
         return new NotificationResponse
         {
             Id = userNotification.NotificationId,
             UserNotificationId = userNotification.Id,
-            Title = userNotification.Notification.Title,
-            Message = userNotification.Notification.Message,
-            Type = userNotification.Notification.Type,
-            SendEmail = userNotification.Notification.SendEmail,
+            Title = notification?.Title ?? string.Empty,
+            Message = notification?.Message ?? string.Empty,
+            Type = notification?.Type ?? default,
+            SendEmail = notification?.SendEmail ?? false,
             IsRead = userNotification.IsRead,
             ReadAt = userNotification.ReadAt,
             CreatedAt = userNotification.CreatedAt,
-            CreatedByAdminId = userNotification.Notification.CreatedByAdminId
+            CreatedByAdminId = notification?.CreatedByAdminId
         };
     }
 }
