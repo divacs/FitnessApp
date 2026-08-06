@@ -151,9 +151,9 @@ public class BalanceService : IBalanceService
             new AvailablePackageResponse
             {
                 Title = "Paket 6 termina",
-                Subtitle = "Za fleksibilan ritam treninga.",
+                Subtitle = "Za fleksibilan ritam treninga",
                 Description = "Paket važi 30 dana od dana aktivacije.",
-                LearnMoreDescription = "Za fleksibilan ritam treninga i planiranje unapred.",
+                LearnMoreDescription = "Za one koji žele da treniraju povremeno i zadrže slobodu u rasporedu.",
                 Details =
                 [
                     "Šta uključuje: 6 grupnih treninga u toku meseca.",
@@ -176,9 +176,9 @@ public class BalanceService : IBalanceService
             new AvailablePackageResponse
             {
                 Title = "Paket 12 termina",
-                Subtitle = "Idealna ravnoteža između kontinuiteta i fleksibilnosti.",
+                Subtitle = "Najpopularniji izbor",
                 Description = "Paket važi 30 dana od dana aktivacije.",
-                LearnMoreDescription = "Najpopularniji izbor za redovan i fleksibilan ritam treniranja.",
+                LearnMoreDescription = "Idealna ravnoteža između kontinuiteta i fleksibilnosti.",
                 Details =
                 [
                     "Šta uključuje: 12 grupnih treninga u toku meseca.",
@@ -226,9 +226,9 @@ public class BalanceService : IBalanceService
             new AvailablePackageResponse
             {
                 Title = "Pojedinačni trening",
-                Subtitle = "Fleksibilna opcija bez članarine.",
+                Subtitle = "Fleksibilna opcija bez članarine",
                 Description = "Trening se može iskoristiti u roku od 30 dana od kupovine.",
-                LearnMoreDescription = "Namenjen je svima koji ne žele mesečnu obavezu i žele da treniraju kada im raspored dozvoli.",
+                LearnMoreDescription = "Trenirajte kada vam odgovara, bez mesečne obaveze.",
                 Details =
                 [
                     "Šta uključuje: 1 grupni trening.",
