@@ -11,14 +11,13 @@ namespace FitnessApp.Infrastructure.Jobs;
 public class BiweeklyTrainingSessionSeedingJob
 {
     public const string RecurringJobId = "biweekly-training-session-seeding";
-    public const string CronExpression = "0 3 * * 5";
+    public const string CronExpression = "0 3 * * *";
 
     private const string DefaultTimeZoneId = "Europe/Belgrade";
     private const string WindowsFallbackTimeZoneId = "Central Europe Standard Time";
     private const string FallbackTrainingTitle = "Trening";
     private const string FixedTrainingTitle = "Full Body Fitness";
     private const string FixedTrainingLocation = "Srnetička 4";
-    private static readonly DateOnly BiweeklyAnchorDate = new(2026, 7, 31);
     private static readonly TrainingSlot[] DefaultSchedule =
     [
         new(DayOfWeek.Wednesday, 18, 0),
@@ -52,14 +51,6 @@ public class BiweeklyTrainingSessionSeedingJob
         var utcNow = _timeProvider.GetUtcNow().UtcDateTime;
         var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, timeZone);
 
-        if (!ShouldSeedThisWeek(localNow.Date))
-        {
-            _logger.LogInformation(
-                "Skipping training session seeding on {LocalDate} because this week is outside the biweekly cadence.",
-                localNow.Date);
-            return;
-        }
-
         var localWindowEndExclusive = localNow.AddDays(14);
         var template = await GetTemplateAsync(cancellationToken);
         var trainingRequests = await BuildMissingTrainingRequestsAsync(
@@ -82,7 +73,7 @@ public class BiweeklyTrainingSessionSeedingJob
         }
 
         _logger.LogInformation(
-            "Training session seeding completed successfully. Created {CreatedCount} training sessions.",
+            "Training session seeding completed successfully. Created {CreatedCount} training sessions to keep the next 14 days covered.",
             trainingRequests.Count);
     }
 
@@ -100,17 +91,6 @@ public class BiweeklyTrainingSessionSeedingJob
         {
             return TimeZoneInfo.FindSystemTimeZoneById(WindowsFallbackTimeZoneId);
         }
-    }
-
-    private static bool ShouldSeedThisWeek(DateTime localDate)
-    {
-        var dayDifference = (localDate.Date - BiweeklyAnchorDate.ToDateTime(TimeOnly.MinValue)).Days;
-        if (dayDifference < 0)
-        {
-            return false;
-        }
-
-        return (dayDifference / 7) % 2 == 0;
     }
 
     private async Task<TrainingTemplate> GetTemplateAsync(CancellationToken cancellationToken)
