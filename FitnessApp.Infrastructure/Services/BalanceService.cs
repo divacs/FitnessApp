@@ -153,7 +153,6 @@ public class BalanceService : IBalanceService
                 Title = "Paket 6 termina",
                 Subtitle = "Za fleksibilan ritam treninga.",
                 Description = "Paket važi 30 dana od dana aktivacije.",
-                LearnMore = "Saznaj više →",
                 LearnMoreDescription = "Za fleksibilan ritam treninga i planiranje unapred.",
                 Details =
                 [
@@ -179,7 +178,6 @@ public class BalanceService : IBalanceService
                 Title = "Paket 12 termina",
                 Subtitle = "Idealna ravnoteža između kontinuiteta i fleksibilnosti.",
                 Description = "Paket važi 30 dana od dana aktivacije.",
-                LearnMore = "Saznaj više →",
                 LearnMoreDescription = "Najpopularniji izbor za redovan i fleksibilan ritam treniranja.",
                 Details =
                 [
@@ -205,7 +203,6 @@ public class BalanceService : IBalanceService
             //     Title = "Paket 16 termina",
             //     Subtitle = "Za maksimalne rezultate.",
             //     Description = "Paket važi 30 dana od dana aktivacije.",
-            //     LearnMore = "Saznaj više →",
             //     LearnMoreDescription = "Za korisnike kojima je važan redovan ritam i veći broj treninga.",
             //     Details =
             //     [
@@ -231,7 +228,6 @@ public class BalanceService : IBalanceService
                 Title = "Pojedinačni trening",
                 Subtitle = "Fleksibilna opcija bez članarine.",
                 Description = "Trening se može iskoristiti u roku od 30 dana od kupovine.",
-                LearnMore = "Saznaj više →",
                 LearnMoreDescription = "Namenjen je svima koji ne žele mesečnu obavezu i žele da treniraju kada im raspored dozvoli.",
                 Details =
                 [

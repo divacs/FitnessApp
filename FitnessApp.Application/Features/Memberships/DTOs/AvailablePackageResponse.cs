@@ -10,8 +10,6 @@ public class AvailablePackageResponse
 
     public string Description { get; init; } = string.Empty;
 
-    public string LearnMore { get; init; } = string.Empty;
-
     public string LearnMoreDescription { get; init; } = string.Empty;
 
     public IReadOnlyCollection<string> Details { get; init; } = System.Array.Empty<string>();
