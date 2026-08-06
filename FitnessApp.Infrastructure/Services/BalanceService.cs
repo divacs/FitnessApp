@@ -158,7 +158,7 @@ public class BalanceService : IBalanceService
                 [
                     "Šta uključuje: 6 grupnih treninga u toku meseca.",
                     "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
-                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Na raspolaganju su do 4 treninga nedeljno.",
+                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Na raspolaganju su do 3 treninga nedeljno.",
                     "Prenos termina: Neiskorišćeni termini se ne prenose u naredni mesec.",
                     "Cena: Na upit."
                 ],
@@ -166,7 +166,7 @@ public class BalanceService : IBalanceService
                 Features =
                 [
                     "6 grupnih treninga u toku meseca",
-                    "Do 4 treninga nedeljno",
+                    "Do 3 treninga nedeljno",
                     "Bez prenosa neiskorišćenih termina"
                 ],
                 Price = "Na upit",
@@ -183,7 +183,7 @@ public class BalanceService : IBalanceService
                 [
                     "Šta uključuje: 12 grupnih treninga u toku meseca.",
                     "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
-                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Možete trenirati do 4 puta nedeljno.",
+                    "Korišćenje termina: Termini se zakazuju unapred putem aplikacije. Možete trenirati do 3 puta nedeljno.",
                     "Prenos termina: Do 2 neiskorišćena termina mogu se preneti u naredni mesec uz obnovu paketa.",
                     "Cena: Na upit."
                 ],
@@ -191,7 +191,7 @@ public class BalanceService : IBalanceService
                 Features =
                 [
                     "12 grupnih treninga u toku meseca",
-                    "Do 4 treninga nedeljno",
+                    "Do 3 treninga nedeljno",
                     "Do 2 preneta termina uz obnovu"
                 ],
                 Price = "Na upit",
@@ -208,7 +208,7 @@ public class BalanceService : IBalanceService
             //     [
             //         "Šta uključuje: 16 grupnih treninga u toku meseca.",
             //         "Trajanje paketa: Paket važi 30 dana od dana aktivacije.",
-            //         "Korišćenje termina: Paket je namenjen redovnom treniranju i omogućava do 4 treninga nedeljno.",
+            //         "Korišćenje termina: Paket je namenjen redovnom treniranju i omogućava do 3 treninga nedeljno.",
             //         "Prenos termina: Do 2 neiskorišćena termina mogu se preneti u naredni mesec uz obnovu paketa.",
             //         "Cena: Na upit."
             //     ],
@@ -216,7 +216,7 @@ public class BalanceService : IBalanceService
             //     Features =
             //     [
             //         "16 grupnih treninga u toku meseca",
-            //         "Do 4 treninga nedeljno",
+            //         "Do 3 treninga nedeljno",
             //         "Do 2 preneta termina uz obnovu"
             //     ],
             //     Price = "Na upit",
