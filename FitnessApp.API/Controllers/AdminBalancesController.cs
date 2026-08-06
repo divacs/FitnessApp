@@ -27,6 +27,7 @@ public class AdminBalancesController : ControllerBase
     /// VraÄ‡a sve dostupne tipove paketa.
     /// </summary>
     /// <param name="cancellationToken">Token za otkazivanje zahteva.</param>
+    [AllowAnonymous]
     [HttpGet("balances/packages")]
     public async Task<ActionResult<ApiResponse<IReadOnlyCollection<AvailablePackageResponse>>>> GetAvailablePackages(
         CancellationToken cancellationToken)
