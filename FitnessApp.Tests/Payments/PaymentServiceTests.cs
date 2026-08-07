@@ -124,6 +124,136 @@ public class PaymentServiceTests
     }
 
     [Fact]
+    public async Task CreatePaymentAsync_WhenPackageIsRecordedAfterPastReservation_ShouldSettleOverdueReservation()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+        var user = CreateUser();
+        var training = new TrainingSession
+        {
+            Id = Guid.NewGuid(),
+            Title = "Jutarnji trening",
+            Description = string.Empty,
+            StartTime = DateTime.UtcNow.AddDays(-2),
+            EndTime = DateTime.UtcNow.AddDays(-2).AddHours(1),
+            Capacity = 15,
+            TrainerName = "Sara",
+            Location = "Studio",
+            CreatedAt = DateTime.UtcNow.AddDays(-2),
+            UpdatedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var reservation = new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TrainingSessionId = training.Id,
+            TrainingSession = training,
+            Status = ReservationStatus.Reserved,
+            ReservedAt = DateTime.UtcNow.AddDays(-2)
+        };
+        var paymentDate = DateTime.UtcNow;
+
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = user.Id,
+                Amount = 3000,
+                PaymentDate = paymentDate,
+                PaymentType = PurchaseType.Package6,
+                StartDate = paymentDate
+            },
+            Guid.NewGuid());
+
+        var updatedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservation.Id);
+        updatedReservation.Status.Should().Be(ReservationStatus.Attended);
+        updatedReservation.AttendedAt.Should().Be(paymentDate);
+
+        var balance = await dbContext.UserTrainingBalances.SingleAsync();
+        balance.RemainingSessions.Should().Be(5);
+    }
+
+    [Fact]
+    public async Task CreatePaymentAsync_WhenUserHasActivePackage_ShouldSettleOverdueReservationFromActivePackage()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var paymentService = services.GetRequiredService<IPaymentService>();
+        var user = CreateUser();
+        var activePackageStartDate = DateTime.UtcNow.AddDays(-7);
+        var activePackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 2,
+            StartDate = activePackageStartDate,
+            EndDate = activePackageStartDate.AddMonths(1),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = activePackageStartDate
+        };
+        var training = new TrainingSession
+        {
+            Id = Guid.NewGuid(),
+            Title = "Jutarnji trening",
+            Description = string.Empty,
+            StartTime = DateTime.UtcNow.AddDays(-1),
+            EndTime = DateTime.UtcNow.AddDays(-1).AddHours(1),
+            Capacity = 15,
+            TrainerName = "Sara",
+            Location = "Studio",
+            CreatedAt = DateTime.UtcNow.AddDays(-1),
+            UpdatedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var reservation = new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TrainingSessionId = training.Id,
+            TrainingSession = training,
+            Status = ReservationStatus.Reserved,
+            ReservedAt = DateTime.UtcNow.AddDays(-1)
+        };
+        var futureStartDate = DateTime.UtcNow.AddDays(2);
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(activePackage);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await paymentService.CreatePaymentAsync(
+            new CreatePaymentRequest
+            {
+                UserId = user.Id,
+                Amount = 3000,
+                PaymentDate = DateTime.UtcNow,
+                PaymentType = PurchaseType.Package12,
+                StartDate = futureStartDate
+            },
+            Guid.NewGuid());
+
+        var updatedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservation.Id);
+        updatedReservation.Status.Should().Be(ReservationStatus.Attended);
+
+        var updatedActivePackage = await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == activePackage.Id);
+        updatedActivePackage.RemainingSessions.Should().Be(1);
+
+        var futurePackage = await dbContext.UserTrainingBalances
+            .Where(x => x.Id != activePackage.Id)
+            .SingleAsync();
+        futurePackage.RemainingSessions.Should().Be(12);
+        futurePackage.StartDate.Should().Be(futureStartDate);
+    }
+
+    [Fact]
     public async Task CreatePaymentAsync_WhenMonthlyMembershipAlreadyExists_ShouldPersistQueuedStartDate()
     {
         var services = CreateServiceProvider();

@@ -67,6 +67,14 @@ public class PaymentService : IPaymentService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
+        await SettleOverdueReservationsAsync(
+            payment.UserId,
+            payment.PaymentType,
+            createdBalance?.Id,
+            payment.PaymentDate,
+            createdBalance?.TotalSessions ?? GetRequiredNumberOfSessions(request),
+            cancellationToken);
+
         await transaction.CommitAsync(cancellationToken);
 
         _logger.LogInformation(
@@ -102,6 +110,7 @@ public class PaymentService : IPaymentService
         payment.UpdatedAt = DateTime.UtcNow;
 
         await UpdateRelatedBalanceAsync(payment, cancellationToken);
+        await SettleOverdueReservationsOnExistingBalanceAsync(payment, cancellationToken);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -312,6 +321,124 @@ public class PaymentService : IPaymentService
         }
 
         return payment.ToResponse();
+    }
+
+    private async Task SettleOverdueReservationsAsync(
+        Guid userId,
+        PurchaseType paymentType,
+        Guid? balanceId,
+        DateTime paymentDate,
+        int availableSessions,
+        CancellationToken cancellationToken)
+    {
+        if (availableSessions <= 0)
+        {
+            return;
+        }
+
+        if (paymentType is not (PurchaseType.Package6 or PurchaseType.Package12 or PurchaseType.Package16 or PurchaseType.SingleSessions))
+        {
+            return;
+        }
+
+        UserTrainingBalance? balance = null;
+
+        if (IsPackagePaymentType(paymentType))
+        {
+            balance = await _dbContext.UserTrainingBalances
+                .FirstOrDefaultAsync(
+                    x => x.UserId == userId
+                         && IsPackagePaymentType(x.PurchaseType)
+                         && x.IsActive
+                         && !x.IsExpired
+                         && x.RemainingSessions > 0
+                         && x.StartDate <= DateTime.UtcNow
+                         && x.EndDate.HasValue
+                         && x.EndDate.Value >= DateTime.UtcNow,
+                    cancellationToken);
+        }
+
+        if (balance is null && balanceId.HasValue)
+        {
+            balance = await _dbContext.UserTrainingBalances
+                .FirstOrDefaultAsync(x => x.Id == balanceId.Value && x.UserId == userId, cancellationToken);
+        }
+        else if (balance is null && paymentType == PurchaseType.SingleSessions)
+        {
+            balance = await _dbContext.UserTrainingBalances
+                .FirstOrDefaultAsync(
+                    x => x.UserId == userId
+                         && x.PurchaseType == PurchaseType.SingleSessions
+                         && x.IsActive
+                         && !x.IsExpired,
+                    cancellationToken);
+        }
+
+        if (balance is null || balance.RemainingSessions <= 0)
+        {
+            return;
+        }
+
+        var overdueReservations = await _dbContext.Reservations
+            .Include(reservation => reservation.TrainingSession)
+            .Where(reservation =>
+                reservation.UserId == userId
+                && reservation.Status == ReservationStatus.Reserved
+                && reservation.TrainingSession.EndTime <= paymentDate)
+            .OrderBy(reservation => reservation.TrainingSession.StartTime)
+            .Take(Math.Min(balance.RemainingSessions, availableSessions))
+            .ToListAsync(cancellationToken);
+
+        foreach (var reservation in overdueReservations)
+        {
+            reservation.Status = ReservationStatus.Attended;
+            reservation.AttendedAt = paymentDate;
+            reservation.AutoMarkedAttended = false;
+            reservation.AutoMarkedAt = null;
+
+            balance.RemainingSessions -= 1;
+        }
+
+        if (overdueReservations.Count > 0)
+        {
+            balance.UpdatedAt = DateTime.UtcNow;
+
+            if (IsPackagePaymentType(balance.PurchaseType) && balance.RemainingSessions <= 0)
+            {
+                balance.IsActive = false;
+            }
+
+            _logger.LogInformation(
+                "Settled {SettledCount} overdue reservations for user {UserId} after payment {PaymentType}.",
+                overdueReservations.Count,
+                userId,
+                paymentType);
+        }
+    }
+
+    private async Task SettleOverdueReservationsOnExistingBalanceAsync(
+        Payment payment,
+        CancellationToken cancellationToken)
+    {
+        if (!IsPackagePaymentType(payment.PaymentType) && payment.PaymentType != PurchaseType.SingleSessions)
+        {
+            return;
+        }
+
+        var balance = await FindRelatedBalanceAsync(payment, cancellationToken);
+
+        if (balance is null)
+        {
+            return;
+        }
+
+        await SettleOverdueReservationsAsync(
+            payment.UserId,
+            payment.PaymentType,
+            balance.Id,
+            payment.PaymentDate,
+            balance.RemainingSessions,
+            cancellationToken);
     }
 
     private static int GetNumberOfSessions(CreatePaymentRequest request)
