@@ -1,4 +1,3 @@
-using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Domain.Entities;
@@ -18,6 +17,7 @@ public class BiweeklyTrainingSessionSeedingJob
     private const string FallbackTrainingTitle = "Trening";
     private const string FixedTrainingTitle = "Full Body Fitness";
     private const string FixedTrainingLocation = "Srnetička 4";
+    private const int FixedTrainingCapacity = 15;
     private static readonly TrainingSlot[] DefaultSchedule =
     [
         new(DayOfWeek.Wednesday, 18, 0),
@@ -27,20 +27,17 @@ public class BiweeklyTrainingSessionSeedingJob
 
     private readonly AppDbContext _dbContext;
     private readonly ITrainingService _trainingService;
-    private readonly ISettingsService _settingsService;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<BiweeklyTrainingSessionSeedingJob> _logger;
 
     public BiweeklyTrainingSessionSeedingJob(
         AppDbContext dbContext,
         ITrainingService trainingService,
-        ISettingsService settingsService,
         TimeProvider timeProvider,
         ILogger<BiweeklyTrainingSessionSeedingJob> logger)
     {
         _dbContext = dbContext;
         _trainingService = trainingService;
-        _settingsService = settingsService;
         _timeProvider = timeProvider;
         _logger = logger;
     }
@@ -105,7 +102,7 @@ public class BiweeklyTrainingSessionSeedingJob
                 training.EndTime > training.StartTime
                     ? training.EndTime - training.StartTime
                     : TimeSpan.FromHours(1),
-                training.Capacity,
+                FixedTrainingCapacity,
                 training.TrainerName,
                 training.Location))
             .FirstOrDefaultAsync(cancellationToken);
@@ -115,13 +112,11 @@ public class BiweeklyTrainingSessionSeedingJob
             return existingTrainingTemplate;
         }
 
-        var defaultCapacity = await _settingsService.GetDefaultTrainingCapacityAsync(cancellationToken);
-
         return new TrainingTemplate(
             FallbackTrainingTitle,
             string.Empty,
             TimeSpan.FromHours(1),
-            defaultCapacity,
+            FixedTrainingCapacity,
             "Sara",
             string.Empty);
     }
