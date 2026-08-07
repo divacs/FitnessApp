@@ -251,22 +251,24 @@ public class NotificationService : INotificationService
             throw new NotFoundException("Trening nije pronađen.");
         }
 
-        var reservedUsers = training.Reservations
-            .Where(reservation => reservation.Status == ReservationStatus.Reserved)
-            .Select(reservation => reservation.User)
+        var targetUsers = await _dbContext.Users
             .Where(user => !user.IsDeleted)
-            .GroupBy(user => user.Id)
-            .Select(group => group.First())
-            .ToArray();
+            .OrderBy(user => user.CreatedAt)
+            .ToArrayAsync(cancellationToken);
 
-        if (reservedUsers.Length == 0)
+        if (targetUsers.Length == 0)
         {
             _logger.LogInformation(
-                "No reserved users found for training notification {NotificationType} and training {TrainingSessionId}.",
+                "No users found for training notification {NotificationType} and training {TrainingSessionId}.",
                 type,
                 trainingSessionId);
             return;
         }
+
+        var uniqueUsers = targetUsers
+            .GroupBy(user => user.Id)
+            .Select(group => group.First())
+            .ToArray();
 
         var notification = new Notification
         {
@@ -277,7 +279,7 @@ public class NotificationService : INotificationService
             CreatedAt = DateTime.UtcNow
         };
 
-        foreach (var user in reservedUsers)
+        foreach (var user in uniqueUsers)
         {
             notification.UserNotifications.Add(new UserNotification
             {
@@ -289,13 +291,13 @@ public class NotificationService : INotificationService
         _dbContext.Notifications.Add(notification);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        EnqueueNotificationEmails(notification, reservedUsers);
+        EnqueueNotificationEmails(notification, uniqueUsers);
 
         _logger.LogInformation(
-            "Sent {NotificationType} notification {NotificationId} to {UserCount} reserved users for training {TrainingSessionId}.",
+            "Sent {NotificationType} notification {NotificationId} to {UserCount} users for training {TrainingSessionId}.",
             type,
             notification.Id,
-            reservedUsers.Length,
+            uniqueUsers.Length,
             trainingSessionId);
     }
 

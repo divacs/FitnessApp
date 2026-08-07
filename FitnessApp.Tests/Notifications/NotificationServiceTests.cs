@@ -109,20 +109,18 @@ public class NotificationServiceTests
     }
 
     [Fact]
-    public async Task SendTrainingCancelledNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForReservedUsers()
+    public async Task SendTrainingCancelledNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForAllUsers()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
         var backgroundJobClient = services.GetRequiredService<FakeBackgroundJobClient>();
         var notificationService = services.GetRequiredService<INotificationService>();
-        var reservedUser = CreateUser(UserStatus.Verified);
-        var cancelledUser = CreateUser(UserStatus.Verified);
+        var firstUser = CreateUser(UserStatus.Verified);
+        var secondUser = CreateUser(UserStatus.Unverified);
+        var thirdUser = CreateUser(UserStatus.Blocked);
         var training = CreateTraining(DateTime.UtcNow.AddDays(1));
-        var reservedReservation = CreateReservation(reservedUser.Id, training.Id, ReservationStatus.Reserved);
-        var cancelledReservation = CreateReservation(cancelledUser.Id, training.Id, ReservationStatus.Cancelled);
-        dbContext.Users.AddRange(reservedUser, cancelledUser);
+        dbContext.Users.AddRange(firstUser, secondUser, thirdUser);
         dbContext.TrainingSessions.Add(training);
-        dbContext.Reservations.AddRange(reservedReservation, cancelledReservation);
         await dbContext.SaveChangesAsync();
 
         await notificationService.SendTrainingCancelledNotificationsAsync(training.Id, "Sara je odsutna");
@@ -133,12 +131,15 @@ public class NotificationServiceTests
         notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
         notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
 
-        var userNotification = await dbContext.UserNotifications.SingleAsync();
-        userNotification.UserId.Should().Be(reservedUser.Id);
-        backgroundJobClient.CreatedJobs.Should().ContainSingle();
-
-        var unchangedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservedReservation.Id);
-        unchangedReservation.Status.Should().Be(ReservationStatus.Reserved);
+        var userNotifications = await dbContext.UserNotifications.ToListAsync();
+        userNotifications.Should().HaveCount(3);
+        userNotifications.Select(x => x.UserId).Should().BeEquivalentTo(new[]
+        {
+            firstUser.Id,
+            secondUser.Id,
+            thirdUser.Id
+        });
+        backgroundJobClient.CreatedJobs.Should().HaveCount(3);
     }
 
     [Fact]

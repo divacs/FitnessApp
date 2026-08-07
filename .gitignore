@@ -377,6 +377,8 @@ FRONTEND_GUIDELINES.md
 NEXT_TASKS.md
 PROJECT_CONTEXT.md
 *.md
+docs/BUSINESS_LOGIC_OVERVIEW.txt
+docs/NEW_PROJECT_STEP_BY_STEP_GUIDE.txt
 
 # Local environment secrets
 .env
