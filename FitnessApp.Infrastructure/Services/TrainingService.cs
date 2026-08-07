@@ -220,20 +220,27 @@ public class TrainingService : ITrainingService
 
         if (training is null)
         {
-            throw new NotFoundException("Trening nije pronađen.");
+            throw new NotFoundException("Trening nije pronaden.");
         }
 
         if (training.Reservations.Count != 0)
         {
-            throw new ConflictException("Trening sa rezervacijama ne može biti obrisan.");
+            await _notificationService.SendTrainingCancelledNotificationsAsync(
+                training.Id,
+                "Trening je obrisan od strane admina.",
+                cancellationToken);
+
+            _dbContext.Reservations.RemoveRange(training.Reservations);
         }
 
         _dbContext.TrainingSessions.Remove(training);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Deleted training session {TrainingSessionId}.", id);
+        _logger.LogInformation(
+            "Deleted training session {TrainingSessionId}. Reservations removed: {ReservationsCount}.",
+            id,
+            training.Reservations.Count);
     }
-
     private async Task<TrainingSession> GetTrackedTrainingAsync(
         Guid id,
         CancellationToken cancellationToken)

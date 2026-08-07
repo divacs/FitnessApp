@@ -360,11 +360,12 @@ public class TrainingServiceTests
     }
 
     [Fact]
-    public async Task DeleteTrainingAsync_WhenTrainingHasReservations_ShouldThrowConflict()
+    public async Task DeleteTrainingAsync_WhenTrainingHasReservations_ShouldDeleteTrainingAndSendCancelledNotifications()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
         var trainingService = services.GetRequiredService<ITrainingService>();
+        var notificationService = services.GetRequiredService<FakeNotificationService>();
         var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Trening");
         training.Reservations.Add(new Reservation
         {
@@ -376,12 +377,17 @@ public class TrainingServiceTests
         dbContext.TrainingSessions.Add(training);
         await dbContext.SaveChangesAsync();
 
-        var act = () => trainingService.DeleteTrainingAsync(training.Id);
+        await trainingService.DeleteTrainingAsync(training.Id);
 
-        await act.Should().ThrowAsync<ConflictException>()
-            .WithMessage("Trening sa rezervacijama ne može biti obrisan.");
+        var trainingExists = await dbContext.TrainingSessions.AnyAsync(x => x.Id == training.Id);
+        trainingExists.Should().BeFalse();
+
+        var reservationExists = await dbContext.Reservations.AnyAsync(x => x.TrainingSessionId == training.Id);
+        reservationExists.Should().BeFalse();
+
+        notificationService.CancelledTrainingIds.Should().ContainSingle(id => id == training.Id);
+        notificationService.CancellationReasons.Should().ContainSingle(reason => reason == "Trening je obrisan od strane admina.");
     }
-
     [Fact]
     public async Task GetTrainingByIdAsync_WhenTrainingDoesNotExist_ShouldThrowNotFound()
     {
@@ -550,3 +556,4 @@ public class TrainingServiceTests
         }
     }
 }
+
