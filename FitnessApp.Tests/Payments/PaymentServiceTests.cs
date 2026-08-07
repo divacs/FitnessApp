@@ -562,14 +562,31 @@ public class PaymentServiceTests
         var paymentService = services.GetRequiredService<IPaymentService>();
         var user = CreateUser();
         var payment = CreatePayment(user.Id, DateTime.UtcNow);
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 4,
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow.AddDays(29),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        };
         dbContext.Users.Add(user);
         dbContext.Payments.Add(payment);
+        dbContext.UserTrainingBalances.Add(balance);
         await dbContext.SaveChangesAsync();
 
         await paymentService.DeletePaymentAsync(payment.Id);
 
         var paymentExists = await dbContext.Payments.AnyAsync(x => x.Id == payment.Id);
         paymentExists.Should().BeFalse();
+
+        var balanceExists = await dbContext.UserTrainingBalances.AnyAsync(x => x.Id == balance.Id);
+        balanceExists.Should().BeFalse();
     }
 
     private static ServiceProvider CreateServiceProvider()

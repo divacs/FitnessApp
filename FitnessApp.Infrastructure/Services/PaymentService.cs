@@ -131,10 +131,20 @@ public class PaymentService : IPaymentService
             throw new NotFoundException("Uplata nije pronađena.");
         }
 
+        var relatedBalance = await FindRelatedBalanceAsync(payment, cancellationToken);
+
+        if (relatedBalance is not null)
+        {
+            _dbContext.UserTrainingBalances.Remove(relatedBalance);
+        }
+
         _dbContext.Payments.Remove(payment);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("Deleted payment {PaymentId}.", paymentId);
+        _logger.LogInformation(
+            "Deleted payment {PaymentId} and related balance {BalanceId}.",
+            paymentId,
+            relatedBalance?.Id);
     }
 
     public async Task<PaginatedResponse<PaymentResponse>> GetPaymentsAsync(
