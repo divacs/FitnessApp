@@ -452,6 +452,37 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task GetCurrentBalanceAsync_WhenPackageHasNoMatchingPayment_ShouldIgnoreIt()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 12,
+            StartDate = DateTime.UtcNow.AddDays(-1),
+            EndDate = DateTime.UtcNow.AddDays(29),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().BeNull();
+        response.SingleSessionsRemaining.Should().Be(0);
+        response.TotalRemainingSessions.Should().Be(0);
+        response.HasAvailableSessions.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task GetCurrentBalanceAsync_ShouldReturnActivePackageAndSingleSessions()
     {
         var services = CreateServiceProvider();
@@ -600,6 +631,34 @@ public class BalanceServiceTests
         response.TotalRemainingSessions.Should().Be(0);
         response.HasAvailableSessions.Should().BeFalse();
         response.MembershipExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetBalanceHistoryAsync_WhenPackageHasNoMatchingPayment_ShouldIgnoreIt()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 6,
+            StartDate = DateTime.UtcNow.AddDays(-2),
+            EndDate = DateTime.UtcNow.AddDays(28),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-2)
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetBalanceHistoryAsync(user.Id);
+
+        response.Should().BeEmpty();
     }
 
     [Fact]
