@@ -139,6 +139,21 @@ public class PaymentService : IPaymentService
         }
 
         _dbContext.Payments.Remove(payment);
+
+        var orphanedBalances = await _dbContext.UserTrainingBalances
+            .Where(balance =>
+                balance.UserId == payment.UserId
+                && !(_dbContext.Payments.Any(existingPayment =>
+                    existingPayment.UserId == balance.UserId
+                    && existingPayment.PaymentType == balance.PurchaseType
+                    && existingPayment.StartDate == balance.StartDate)))
+            .ToListAsync(cancellationToken);
+
+        if (orphanedBalances.Count > 0)
+        {
+            _dbContext.UserTrainingBalances.RemoveRange(orphanedBalances);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

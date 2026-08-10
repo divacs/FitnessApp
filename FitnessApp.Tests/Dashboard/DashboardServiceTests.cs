@@ -126,6 +126,36 @@ public class DashboardServiceTests
         response.ActiveMembership.RemainingSessions.Should().Be(6);
     }
 
+    [Fact]
+    public async Task GetUserDashboardAsync_WhenPackageHasNoMatchingPayment_ShouldNotReturnActiveMembership()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var dashboardService = services.GetRequiredService<IDashboardService>();
+        var user = CreateUser();
+        var orphanPackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 12,
+            StartDate = DateTime.UtcNow.AddDays(-5),
+            EndDate = DateTime.UtcNow.AddDays(25),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = DateTime.UtcNow.AddDays(-5)
+        };
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(orphanPackage);
+        await dbContext.SaveChangesAsync();
+
+        var response = await dashboardService.GetUserDashboardAsync(user.Id);
+
+        response.ActiveMembership.Should().BeNull();
+    }
+
     private static ServiceProvider CreateServiceProvider()
     {
         var services = new ServiceCollection();
