@@ -40,6 +40,10 @@ public interface INotificationService
         string cancellationReason,
         CancellationToken cancellationToken = default);
 
+    Task SendTrainingCreatedNotificationsAsync(
+        Guid trainingSessionId,
+        CancellationToken cancellationToken = default);
+
     Task SendTrainingUpdatedNotificationsAsync(
         Guid trainingSessionId,
         CancellationToken cancellationToken = default);

@@ -134,6 +134,8 @@ public class TrainingService : ITrainingService
         _dbContext.TrainingSessions.Add(training);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
+        await _notificationService.SendTrainingCreatedNotificationsAsync(training.Id, cancellationToken);
+
         _logger.LogInformation(
             "Created training session {TrainingSessionId} with capacity {Capacity}.",
             training.Id,

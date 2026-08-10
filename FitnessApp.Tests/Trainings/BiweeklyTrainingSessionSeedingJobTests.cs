@@ -159,6 +159,13 @@ public class BiweeklyTrainingSessionSeedingJobTests
             return Task.CompletedTask;
         }
 
+        public Task SendTrainingCreatedNotificationsAsync(
+            Guid trainingSessionId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
         public Task SendTrainingUpdatedNotificationsAsync(
             Guid trainingSessionId,
             CancellationToken cancellationToken = default)

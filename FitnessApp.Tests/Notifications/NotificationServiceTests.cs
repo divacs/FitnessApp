@@ -143,6 +143,41 @@ public class NotificationServiceTests
     }
 
     [Fact]
+    public async Task SendTrainingCreatedNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForAllUsers()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var backgroundJobClient = services.GetRequiredService<FakeBackgroundJobClient>();
+        var notificationService = services.GetRequiredService<INotificationService>();
+        var firstUser = CreateUser(UserStatus.Verified);
+        var secondUser = CreateUser(UserStatus.Unverified);
+        var thirdUser = CreateUser(UserStatus.Blocked);
+        var training = CreateTraining(DateTime.UtcNow.AddDays(2));
+        dbContext.Users.AddRange(firstUser, secondUser, thirdUser);
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+
+        await notificationService.SendTrainingCreatedNotificationsAsync(training.Id);
+
+        var notification = await dbContext.Notifications.SingleAsync();
+        notification.Type.Should().Be(NotificationType.TrainingUpdated);
+        notification.Title.Should().Be("Novi trening je zakazan");
+        notification.Message.Should().Contain("Novi trening");
+        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+
+        var userNotifications = await dbContext.UserNotifications.ToListAsync();
+        userNotifications.Should().HaveCount(3);
+        userNotifications.Select(x => x.UserId).Should().BeEquivalentTo(new[]
+        {
+            firstUser.Id,
+            secondUser.Id,
+            thirdUser.Id
+        });
+        backgroundJobClient.CreatedJobs.Should().HaveCount(3);
+    }
+
+    [Fact]
     public async Task SendTrainingUpdatedNotificationsAsync_ShouldCreateTrainingUpdatedNotification()
     {
         var services = CreateServiceProvider();

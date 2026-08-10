@@ -197,6 +197,18 @@ public class NotificationService : INotificationService
             cancellationToken);
     }
 
+    public Task SendTrainingCreatedNotificationsAsync(
+        Guid trainingSessionId,
+        CancellationToken cancellationToken = default)
+    {
+        return SendTrainingNotificationAsync(
+            trainingSessionId,
+            title: "Novi trening je zakazan",
+            type: NotificationType.TrainingUpdated,
+            messageFactory: BuildTrainingCreatedMessage,
+            cancellationToken);
+    }
+
     public Task SendTrainingUpdatedNotificationsAsync(
         Guid trainingSessionId,
         CancellationToken cancellationToken = default)
@@ -322,6 +334,18 @@ public class NotificationService : INotificationService
             Datum: {training.StartTime:dd.MM.yyyy.}
             Vreme: {training.StartTime:HH:mm}
             Lokacija: {training.Location}
+            """;
+    }
+
+    private static string BuildTrainingCreatedMessage(TrainingSession training)
+    {
+        return $"""
+            Novi trening "{training.Title}" je zakazan.
+
+            Datum: {training.StartTime:dd.MM.yyyy.}
+            Vreme: {training.StartTime:HH:mm}
+            Lokacija: {training.Location}
+            Trener: {training.TrainerName}
             """;
     }
 

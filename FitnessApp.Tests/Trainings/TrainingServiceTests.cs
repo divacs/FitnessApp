@@ -170,6 +170,27 @@ public class TrainingServiceTests
     }
 
     [Fact]
+    public async Task CreateTrainingAsync_ShouldSendTrainingCreatedNotifications()
+    {
+        var services = CreateServiceProvider();
+        var notificationService = services.GetRequiredService<FakeNotificationService>();
+        var trainingService = services.GetRequiredService<ITrainingService>();
+        var startTime = DateTime.UtcNow.AddDays(1);
+
+        var response = await trainingService.CreateTrainingAsync(
+            new CreateTrainingSessionRequest
+            {
+                Title = "Jutarnji trening",
+                StartTime = startTime,
+                EndTime = startTime.AddHours(1),
+                Capacity = 12
+            });
+
+        response.Title.Should().Be("Jutarnji trening");
+        notificationService.CreatedTrainingIds.Should().ContainSingle(id => id == response.Id);
+    }
+
+    [Fact]
     public async Task CreateTrainingAsync_WhenCapacityIsZero_ShouldUseDefaultTrainingCapacityFromSettings()
     {
         var services = CreateServiceProvider(defaultTrainingCapacity: 14);
@@ -440,6 +461,8 @@ public class TrainingServiceTests
 
         public List<string> CancellationReasons { get; } = new();
 
+        public List<Guid> CreatedTrainingIds { get; } = new();
+
         public List<Guid> UpdatedTrainingIds { get; } = new();
 
         public Task<NotificationResponse> CreateNotificationAsync(
@@ -501,6 +524,14 @@ public class TrainingServiceTests
         {
             CancelledTrainingIds.Add(trainingSessionId);
             CancellationReasons.Add(cancellationReason);
+            return Task.CompletedTask;
+        }
+
+        public Task SendTrainingCreatedNotificationsAsync(
+            Guid trainingSessionId,
+            CancellationToken cancellationToken = default)
+        {
+            CreatedTrainingIds.Add(trainingSessionId);
             return Task.CompletedTask;
         }
 
