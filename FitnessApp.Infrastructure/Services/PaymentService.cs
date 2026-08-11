@@ -381,7 +381,9 @@ public class PaymentService : IPaymentService
             balance = await _dbContext.UserTrainingBalances
                 .FirstOrDefaultAsync(
                     x => x.UserId == userId
-                         && IsPackagePaymentType(x.PurchaseType)
+                         && (x.PurchaseType == PurchaseType.Package6
+                             || x.PurchaseType == PurchaseType.Package12
+                             || x.PurchaseType == PurchaseType.Package16)
                          && x.IsActive
                          && !x.IsExpired
                          && x.RemainingSessions > 0
