@@ -169,6 +169,9 @@ public class BalanceService : IBalanceService
             .ThenByDescending(payment => payment.CreatedAt)
             .ToListAsync(cancellationToken);
 
+        var hasActiveSingleSessions = await GetAvailableSingleSessionsQuery(userId)
+            .AnyAsync(cancellationToken);
+
         return memberships
             .Select(balance => balance.ToMembershipHistoryResponse(
                 FindPaymentDate(balance, paymentDates),
@@ -183,7 +186,7 @@ public class BalanceService : IBalanceService
                 EndDate = null,
                 TotalSessions = payment.NumberOfSessions,
                 RemainingSessions = payment.NumberOfSessions,
-                IsCurrentlyActive = false
+                IsCurrentlyActive = hasActiveSingleSessions
             }))
             .OrderByDescending(membership => membership.PaymentDate)
             .ThenByDescending(membership => membership.StartDate)
