@@ -131,7 +131,7 @@ public class DashboardService : IDashboardService
                 && payment.PaymentType == activeMembership.PurchaseType
                 && (
                     activeMembership.PurchaseType == PurchaseType.SingleSessions
-                        ? payment.NumberOfSessions == activeMembership.TotalSessions
+                        ? true
                         : payment.NumberOfSessions == GetBasePackageSessionCount(activeMembership.PurchaseType)
                           && payment.StartDate == activeMembership.StartDate))
             .OrderByDescending(payment => payment.PaymentDate)

@@ -393,6 +393,14 @@ public class BalanceService : IBalanceService
         var newPackage = package12Balances[0];
         var previousPackage = package12Balances[1];
 
+        if (previousPackage.EndDate > DateTime.UtcNow)
+        {
+            _logger.LogInformation(
+                "Carry-over skipped from Package12 balance {PreviousBalanceId} because the package is still active.",
+                previousPackage.Id);
+            return;
+        }
+
         if (newPackage.CarriedOverSessions > 0)
         {
             _logger.LogInformation(
@@ -459,7 +467,7 @@ public class BalanceService : IBalanceService
         balance.RemainingSessions -= 1;
         balance.UpdatedAt = DateTime.UtcNow;
 
-        if (IsMonthlyPackage(balance.PurchaseType) && balance.RemainingSessions <= 0)
+        if (balance.RemainingSessions <= 0)
         {
             balance.IsActive = false;
         }

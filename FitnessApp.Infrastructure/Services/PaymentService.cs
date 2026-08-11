@@ -133,7 +133,28 @@ public class PaymentService : IPaymentService
 
         var relatedBalance = await FindRelatedBalanceAsync(payment, cancellationToken);
 
-        if (relatedBalance is not null)
+        if (relatedBalance is not null && payment.PaymentType == PurchaseType.SingleSessions)
+        {
+            var hasOtherSingleSessionPayments = await _dbContext.Payments
+                .AnyAsync(existingPayment =>
+                    existingPayment.Id != payment.Id
+                    && existingPayment.UserId == payment.UserId
+                    && existingPayment.PaymentType == PurchaseType.SingleSessions,
+                    cancellationToken);
+
+            if (hasOtherSingleSessionPayments)
+            {
+                relatedBalance.TotalSessions = Math.Max(0, relatedBalance.TotalSessions - payment.NumberOfSessions);
+                relatedBalance.RemainingSessions = Math.Max(0, relatedBalance.RemainingSessions - payment.NumberOfSessions);
+                relatedBalance.IsActive = relatedBalance.RemainingSessions > 0;
+                relatedBalance.UpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _dbContext.UserTrainingBalances.Remove(relatedBalance);
+            }
+        }
+        else if (relatedBalance is not null)
         {
             _dbContext.UserTrainingBalances.Remove(relatedBalance);
         }
@@ -524,9 +545,8 @@ public class PaymentService : IPaymentService
             .Where(balance =>
                 balance.UserId == payment.UserId
                 && balance.PurchaseType == payment.PaymentType
-                && (!IsPackagePaymentType(payment.PaymentType)
-                    ? balance.TotalSessions == payment.NumberOfSessions
-                    : true));
+                && (IsPackagePaymentType(payment.PaymentType)
+                    || payment.PaymentType == PurchaseType.SingleSessions));
 
         if (payment.CreatedByAdminId.HasValue)
         {
