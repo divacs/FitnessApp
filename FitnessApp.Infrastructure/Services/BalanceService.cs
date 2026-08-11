@@ -160,10 +160,33 @@ public class BalanceService : IBalanceService
                 payment.NumberOfSessions))
             .ToListAsync(cancellationToken);
 
+        var singleSessionPayments = await _dbContext.Payments
+            .AsNoTracking()
+            .Where(payment =>
+                payment.UserId == userId
+                && payment.PaymentType == PurchaseType.SingleSessions)
+            .OrderByDescending(payment => payment.PaymentDate)
+            .ThenByDescending(payment => payment.CreatedAt)
+            .ToListAsync(cancellationToken);
+
         return memberships
             .Select(balance => balance.ToMembershipHistoryResponse(
                 FindPaymentDate(balance, paymentDates),
                 activeMembershipIds.Contains(balance.Id)))
+            .Concat(singleSessionPayments.Select(payment => new MembershipHistoryResponse
+            {
+                Id = payment.Id,
+                PurchaseType = payment.PaymentType,
+                PackageName = "Pojedinačni termini",
+                StartDate = payment.PaymentDate,
+                PaymentDate = payment.PaymentDate,
+                EndDate = null,
+                TotalSessions = payment.NumberOfSessions,
+                RemainingSessions = payment.NumberOfSessions,
+                IsCurrentlyActive = false
+            }))
+            .OrderByDescending(membership => membership.PaymentDate)
+            .ThenByDescending(membership => membership.StartDate)
             .ToArray();
     }
 
