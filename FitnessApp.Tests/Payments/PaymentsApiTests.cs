@@ -22,6 +22,54 @@ public class PaymentsApiTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
+    public async Task CreatePayment_AsAdmin_ShouldCreatePackage12Payment()
+    {
+        await using var factory = new AuthApiFactory();
+        using var client = factory.CreateClient();
+        var admin = await CreateAdminAsync(factory);
+        var paymentUser = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = "create-payment-user@example.com",
+            Email = "create-payment-user@example.com",
+            FirstName = "Milica",
+            LastName = "Petrovic",
+            UserStatus = UserStatus.Verified,
+            EmailConfirmed = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            dbContext.Users.Add(paymentUser);
+            await dbContext.SaveChangesAsync();
+        }
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login", new LoginRequest
+        {
+            Email = admin.Email!,
+            Password = Password
+        });
+        var loginPayload = await loginResponse.Content.ReadFromJsonAsync<ApiResponse<AuthResponse>>(JsonOptions);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            loginPayload!.Data!.AccessToken);
+
+        var startDate = DateTime.UtcNow;
+        var response = await client.PostAsJsonAsync("/api/admin/payments", new CreatePaymentRequest
+        {
+            UserId = paymentUser.Id,
+            Amount = 4500,
+            PaymentDate = startDate,
+            PaymentType = PurchaseType.Package12,
+            StartDate = startDate
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task GetPayments_AsAdmin_ShouldReturnPaginatedPayments()
     {
         await using var factory = new AuthApiFactory();

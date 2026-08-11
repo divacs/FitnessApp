@@ -39,13 +39,15 @@ public class PaymentService : IPaymentService
 
         await EnsureUserExistsAsync(request.UserId, cancellationToken);
 
-        var paymentStartDate = request.StartDate;
+        var paymentStartDate = request.StartDate.HasValue
+            ? NormalizeUtc(request.StartDate.Value)
+            : (DateTime?)null;
 
         var payment = new Payment
         {
             UserId = request.UserId,
             Amount = request.Amount,
-            PaymentDate = request.PaymentDate,
+            PaymentDate = NormalizeUtc(request.PaymentDate),
             StartDate = paymentStartDate,
             PaymentType = request.PaymentType,
             NumberOfSessions = GetNumberOfSessions(request),
@@ -104,7 +106,7 @@ public class PaymentService : IPaymentService
         }
 
         payment.Amount = request.Amount;
-        payment.PaymentDate = request.PaymentDate;
+        payment.PaymentDate = NormalizeUtc(request.PaymentDate);
         payment.StartDate = ResolveUpdatedPaymentStartDate(payment.PaymentType, request.StartDate, payment.StartDate);
         payment.Note = request.Note;
         payment.UpdatedAt = DateTime.UtcNow;
@@ -501,7 +503,7 @@ public class PaymentService : IPaymentService
             throw new BadRequestException("Datum početka je obavezan za paket.");
         }
 
-        return request.StartDate.Value;
+        return NormalizeUtc(request.StartDate.Value);
     }
 
     private async Task UpdateRelatedBalanceAsync(
@@ -695,7 +697,19 @@ public class PaymentService : IPaymentService
             return null;
         }
 
-        return requestedStartDate ?? currentStartDate;
+        return requestedStartDate.HasValue
+            ? NormalizeUtc(requestedStartDate.Value)
+            : currentStartDate;
+    }
+
+    private static DateTime NormalizeUtc(DateTime value)
+    {
+        return value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
     }
 
     private static bool IsPackagePaymentType(PurchaseType paymentType)
