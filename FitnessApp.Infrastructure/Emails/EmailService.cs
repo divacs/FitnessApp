@@ -1,4 +1,5 @@
 using FitnessApp.Application.Features.Emails.Interfaces;
+using FitnessApp.Application.Features.Settings.Interfaces;
 using FitnessApp.Application.Settings;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -12,13 +13,16 @@ namespace FitnessApp.Infrastructure.Emails;
 public class EmailService : IEmailService
 {
     private readonly EmailSettings _emailSettings;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(
         IOptions<EmailSettings> emailSettings,
+        ISettingsService settingsService,
         ILogger<EmailService> logger)
     {
         _emailSettings = emailSettings.Value;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -90,12 +94,13 @@ public class EmailService : IEmailService
             cancellationToken);
     }
 
-    public Task SendUserVerifiedEmailAsync(
+    public async Task SendUserVerifiedEmailAsync(
         string toEmail,
         string firstName,
         CancellationToken cancellationToken = default)
     {
         const string subject = "Nalog je verifikovan";
+        var cancellationDeadlineHours = await _settingsService.GetCancellationDeadlineHoursAsync(cancellationToken);
         var plainTextBody = $"""
             Zdravo {firstName},
 
@@ -104,13 +109,25 @@ public class EmailService : IEmailService
             Sara - FitnessApp
             """;
 
-        return SendAsync(
+        plainTextBody += $"""
+
+            Kako koristiti aplikaciju:
+            - Rezervišite budući trening; možete imati najviše 2 naredne rezervacije.
+            - Rezervacija je moguća i bez aktivnog paketa. Termin se skida tek kada prisustvujete treningu ili kada Sara označi izostanak.
+            - Paket 6 i Paket 12 važe 30 dana od aktivacije. Pri obnovi Paketa 12 mogu se preneti najviše 2 neiskorišćena termina; termini iz Paketa 6 se ne prenose.
+            - Pojedinačni termini ostaju aktivni dok ih ne iskoristite.
+            - Rezervaciju možete otkazati najkasnije {cancellationDeadlineHours} h pre početka treninga.
+
+            Stanje termina, sledeći trening i istoriju uplata možete proveriti u aplikaciji.
+            """;
+
+        await SendAsync(
             toEmail,
             subject,
             BuildHtmlTemplate(
                 "Nalog je verifikovan",
                 firstName,
-                "Vaš nalog je uspešno verifikovan. Sada možete koristiti FitnessApp sistem."),
+                $"Vaš nalog je uspešno verifikovan. Rezervišite budući trening (najviše 2 naredne rezervacije). Paket 6 i Paket 12 važe 30 dana; uz obnovu Paketa 12 prenose se najviše 2 neiskorišćena termina, a pojedinačni termini važe dok ih ne iskoristite. Rezervaciju otkažite najmanje {cancellationDeadlineHours} h pre treninga."),
             plainTextBody,
             cancellationToken);
     }
