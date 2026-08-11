@@ -43,9 +43,35 @@ public class BalanceService : IBalanceService
             .ThenByDescending(balance => balance.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
+        if (activePackage is null)
+        {
+            activePackage = await _dbContext.UserTrainingBalances
+                .AsNoTracking()
+                .Where(balance =>
+                    balance.UserId == userId
+                    && balance.PurchaseType == PurchaseType.SingleSessions
+                    && balance.IsActive
+                    && !balance.IsExpired
+                    && balance.RemainingSessions > 0
+                    && _dbContext.Payments.Any(payment =>
+                        payment.UserId == balance.UserId
+                        && payment.PaymentType == balance.PurchaseType))
+                .OrderByDescending(balance => balance.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         var singleSessionsRemaining = await GetAvailableSingleSessionsQuery(userId)
             .AsNoTracking()
+            .Where(balance =>
+                _dbContext.Payments.Any(payment =>
+                    payment.UserId == balance.UserId
+                    && payment.PaymentType == balance.PurchaseType))
             .SumAsync(balance => balance.RemainingSessions, cancellationToken);
+
+        if (activePackage is not null && activePackage.PurchaseType == PurchaseType.SingleSessions)
+        {
+            singleSessionsRemaining -= activePackage.RemainingSessions;
+        }
 
         var activePackageRemainingSessions = activePackage?.RemainingSessions ?? 0;
         var totalRemainingSessions = activePackageRemainingSessions + singleSessionsRemaining;
@@ -72,13 +98,17 @@ public class BalanceService : IBalanceService
             .Where(balance =>
                 balance.UserId == userId
                 && (
-                    balance.PurchaseType != PurchaseType.Package6
-                    && balance.PurchaseType != PurchaseType.Package12
-                    && balance.PurchaseType != PurchaseType.Package16
-                    || _dbContext.Payments.Any(payment =>
-                        payment.UserId == balance.UserId
-                        && payment.PaymentType == balance.PurchaseType
-                        && payment.StartDate == balance.StartDate)))
+                    balance.PurchaseType == PurchaseType.SingleSessions
+                        ? _dbContext.Payments.Any(payment =>
+                            payment.UserId == balance.UserId
+                            && payment.PaymentType == balance.PurchaseType)
+                        : balance.PurchaseType != PurchaseType.Package6
+                            && balance.PurchaseType != PurchaseType.Package12
+                            && balance.PurchaseType != PurchaseType.Package16
+                            || _dbContext.Payments.Any(payment =>
+                                payment.UserId == balance.UserId
+                                && payment.PaymentType == balance.PurchaseType
+                                && payment.StartDate == balance.StartDate)))
             .OrderByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -149,13 +179,17 @@ public class BalanceService : IBalanceService
             .Where(balance =>
                 balance.UserId == userId
                 && (
-                    balance.PurchaseType != PurchaseType.Package6
-                    && balance.PurchaseType != PurchaseType.Package12
-                    && balance.PurchaseType != PurchaseType.Package16
-                    || _dbContext.Payments.Any(payment =>
-                        payment.UserId == balance.UserId
-                        && payment.PaymentType == balance.PurchaseType
-                        && payment.StartDate == balance.StartDate)))
+                    balance.PurchaseType == PurchaseType.SingleSessions
+                        ? _dbContext.Payments.Any(payment =>
+                            payment.UserId == balance.UserId
+                            && payment.PaymentType == balance.PurchaseType)
+                        : balance.PurchaseType != PurchaseType.Package6
+                            && balance.PurchaseType != PurchaseType.Package12
+                            && balance.PurchaseType != PurchaseType.Package16
+                            || _dbContext.Payments.Any(payment =>
+                                payment.UserId == balance.UserId
+                                && payment.PaymentType == balance.PurchaseType
+                                && payment.StartDate == balance.StartDate)))
             .OrderByDescending(balance => balance.StartDate)
             .ThenByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -701,6 +735,10 @@ public class BalanceService : IBalanceService
                 && balance.EndDate.HasValue
                 && (balance.StartDate > utcNow
                     || (balance.StartDate <= utcNow && balance.EndDate >= utcNow)))
+            .Where(balance => _dbContext.Payments.Any(payment =>
+                payment.UserId == balance.UserId
+                && payment.PaymentType == balance.PurchaseType
+                && payment.StartDate == balance.StartDate))
             .OrderByDescending(balance => balance.EndDate)
             .ThenByDescending(balance => balance.StartDate)
             .Select(balance => balance.EndDate)

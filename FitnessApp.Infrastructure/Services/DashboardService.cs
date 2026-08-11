@@ -129,8 +129,11 @@ public class DashboardService : IDashboardService
             .Where(payment =>
                 payment.UserId == userId
                 && payment.PaymentType == activeMembership.PurchaseType
-                && payment.NumberOfSessions == GetBasePackageSessionCount(activeMembership.PurchaseType)
-                && payment.StartDate == activeMembership.StartDate)
+                && (
+                    activeMembership.PurchaseType == PurchaseType.SingleSessions
+                        ? payment.NumberOfSessions == activeMembership.TotalSessions
+                        : payment.NumberOfSessions == GetBasePackageSessionCount(activeMembership.PurchaseType)
+                          && payment.StartDate == activeMembership.StartDate))
             .OrderByDescending(payment => payment.PaymentDate)
             .ThenByDescending(payment => payment.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);

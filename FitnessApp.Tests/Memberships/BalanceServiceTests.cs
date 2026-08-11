@@ -129,6 +129,45 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task CreatePackage6Async_WhenOrphanMembershipExists_ShouldIgnoreItWhenResolvingStartDate()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var adminId = Guid.NewGuid();
+        var requestedStartDate = new DateTime(2026, 8, 10, 0, 0, 0, DateTimeKind.Utc);
+        var orphanBalance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 6,
+            StartDate = requestedStartDate,
+            EndDate = requestedStartDate.AddMonths(1),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = requestedStartDate
+        };
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(orphanBalance);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.CreatePackage6Async(
+            user.Id,
+            new CreatePackage6Request
+            {
+                StartDate = requestedStartDate
+            },
+            adminId);
+
+        response.StartDate.Should().Be(requestedStartDate);
+        response.EndDate.Should().Be(requestedStartDate.AddMonths(1));
+    }
+
+    [Fact]
     public async Task CreatePackage12Async_WhenStartDateIsMissing_ShouldThrowBadRequest()
     {
         var services = CreateServiceProvider();
