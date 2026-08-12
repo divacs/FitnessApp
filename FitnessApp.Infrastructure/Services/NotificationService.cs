@@ -4,6 +4,7 @@ using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Notifications.DTOs;
 using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Application.Features.Notifications.Mappings;
+using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Jobs;
@@ -60,7 +61,14 @@ public class NotificationService : INotificationService
         ValidateRequest(request);
 
         var verifiedUsers = await _dbContext.Users
-            .Where(user => !user.IsDeleted && user.UserStatus == UserStatus.Verified)
+            .Where(user =>
+                !user.IsDeleted
+                && user.UserStatus == UserStatus.Verified
+                && !_dbContext.UserRoles.Any(userRole =>
+                    userRole.UserId == user.Id
+                    && _dbContext.Roles.Any(role =>
+                        role.Id == userRole.RoleId
+                        && role.Name == RoleConstants.Admin)))
             .ToListAsync(cancellationToken);
 
         var notification = CreateNotification(request, adminId);
@@ -264,7 +272,13 @@ public class NotificationService : INotificationService
         }
 
         var targetUsers = await _dbContext.Users
-            .Where(user => !user.IsDeleted)
+            .Where(user =>
+                !user.IsDeleted
+                && !_dbContext.UserRoles.Any(userRole =>
+                    userRole.UserId == user.Id
+                    && _dbContext.Roles.Any(role =>
+                        role.Id == userRole.RoleId
+                        && role.Name == RoleConstants.Admin)))
             .OrderBy(user => user.CreatedAt)
             .ToArrayAsync(cancellationToken);
 
