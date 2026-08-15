@@ -66,7 +66,10 @@ public class BiweeklyTrainingSessionSeedingJob
 
         foreach (var request in trainingRequests)
         {
-            await _trainingService.CreateTrainingAsync(request, cancellationToken);
+            await _trainingService.CreateTrainingAsync(
+                request,
+                cancellationToken: cancellationToken,
+                sendNotification: false);
         }
 
         _logger.LogInformation(

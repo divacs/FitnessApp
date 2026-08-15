@@ -104,7 +104,8 @@ public class TrainingService : ITrainingService
 
     public async Task<TrainingSessionResponse> CreateTrainingAsync(
         CreateTrainingSessionRequest request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool sendNotification = true)
     {
         ValidateTrainingTimes(request.StartTime, request.EndTime);
         ValidateCreateCapacity(request.Capacity);
@@ -134,7 +135,10 @@ public class TrainingService : ITrainingService
         _dbContext.TrainingSessions.Add(training);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        await _notificationService.SendTrainingCreatedNotificationsAsync(training.Id, cancellationToken);
+        if (sendNotification)
+        {
+            await _notificationService.SendTrainingCreatedNotificationsAsync(training.Id, cancellationToken);
+        }
 
         _logger.LogInformation(
             "Created training session {TrainingSessionId} with capacity {Capacity}.",

@@ -16,7 +16,8 @@ public interface ITrainingService
 
     Task<TrainingSessionResponse> CreateTrainingAsync(
         CreateTrainingSessionRequest request,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool sendNotification = true);
 
     Task<TrainingSessionResponse> UpdateTrainingAsync(
         Guid id,
