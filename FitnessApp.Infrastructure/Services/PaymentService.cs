@@ -443,6 +443,8 @@ public class PaymentService : IPaymentService
                 balance.IsActive = false;
             }
 
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
             _logger.LogInformation(
                 "Settled {SettledCount} overdue reservations for user {UserId} after payment {PaymentType}.",
                 overdueReservations.Count,
