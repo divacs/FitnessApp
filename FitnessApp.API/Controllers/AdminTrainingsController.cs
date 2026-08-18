@@ -2,6 +2,8 @@ using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Trainings.DTOs;
 using FitnessApp.Application.Features.Trainings.Interfaces;
 using FitnessApp.Domain.Constants;
+using FitnessApp.Infrastructure.Jobs;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +15,14 @@ namespace FitnessApp.API.Controllers;
 public class AdminTrainingsController : ControllerBase
 {
     private readonly ITrainingService _trainingService;
+    private readonly IBackgroundJobClient _backgroundJobClient;
 
-    public AdminTrainingsController(ITrainingService trainingService)
+    public AdminTrainingsController(
+        ITrainingService trainingService,
+        IBackgroundJobClient backgroundJobClient)
     {
         _trainingService = trainingService;
+        _backgroundJobClient = backgroundJobClient;
     }
 
     [HttpPost]
@@ -27,6 +33,17 @@ public class AdminTrainingsController : ControllerBase
         var training = await _trainingService.CreateTrainingAsync(request, cancellationToken);
 
         return Ok(ApiResponse<TrainingSessionResponse>.Success(training, "Trening je uspešno kreiran."));
+    }
+
+    [HttpPost("seed")]
+    public ActionResult<ApiResponse<EmptyResponse>> SeedUpcomingTrainings()
+    {
+        _backgroundJobClient.Enqueue<BiweeklyTrainingSessionSeedingJob>(
+            job => job.ExecuteAsync(CancellationToken.None));
+
+        return Ok(ApiResponse<EmptyResponse>.Success(
+            EmptyResponse.Value,
+            "Dopuna budućih treninga je pokrenuta."));
     }
 
     [HttpPut("{id:guid}")]
