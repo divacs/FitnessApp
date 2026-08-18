@@ -309,12 +309,12 @@ public class BalanceService : IBalanceService
             {
                 Title = "Pojedinačni trening",
                 Subtitle = "Fleksibilna opcija bez članarine",
-                Description = "Trening se može iskoristiti u roku od 30 dana od kupovine.",
+                Description = "Trening se može iskoristiti bez vremenskog ograničenja.",
                 LearnMoreDescription = "Trenirajte kada vam odgovara, bez mesečne obaveze.",
                 Details =
                 [
                     "Šta uključuje: 1 grupni trening.",
-                    "Trajanje: Trening se može iskoristiti u roku od 30 dana od kupovine.",
+                    "Trajanje: Trening se može iskoristiti bez vremenskog ograničenja.",
                     "Fleksibilnost: Namenjen je svima koji ne žele mesečnu obavezu i žele da treniraju kada im raspored dozvoli.",
                     "Zakazivanje: Termin se rezerviše unapred putem aplikacije.",
                     "Cena: Na upit."
