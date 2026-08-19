@@ -35,7 +35,7 @@ public class AdminTrainingsController : ControllerBase
         return Ok(ApiResponse<TrainingSessionResponse>.Success(training, "Trening je uspešno kreiran."));
     }
 
-    [HttpPost("seed")]
+    [NonAction]
     public ActionResult<ApiResponse<EmptyResponse>> SeedUpcomingTrainings()
     {
         _backgroundJobClient.Enqueue<BiweeklyTrainingSessionSeedingJob>(
