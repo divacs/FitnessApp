@@ -15,9 +15,10 @@ public class BiweeklyTrainingSessionSeedingJob
     private const string DefaultTimeZoneId = "Europe/Belgrade";
     private const string WindowsFallbackTimeZoneId = "Central Europe Standard Time";
     private const string FallbackTrainingTitle = "Trening";
-    private const string FixedTrainingTitle = "Full Body Fitness";
+    private const string FixedTrainingTitle = "Aerobik";
     private const string FixedTrainingLocation = "Srnetička 4";
     private const int FixedTrainingCapacity = 15;
+    private static readonly DateTime SeedStartDate = new(2026, 9, 1);
     private static readonly TrainingSlot[] DefaultSchedule =
     [
         new(DayOfWeek.Wednesday, 18, 0),
@@ -192,7 +193,9 @@ public class BiweeklyTrainingSessionSeedingJob
 
                 var localStartTime = date.AddHours(slot.Hour).AddMinutes(slot.Minute);
 
-                if (localStartTime <= localNow || localStartTime >= localWindowEndExclusive)
+                if (localStartTime < SeedStartDate
+                    || localStartTime <= localNow
+                    || localStartTime >= localWindowEndExclusive)
                 {
                     continue;
                 }

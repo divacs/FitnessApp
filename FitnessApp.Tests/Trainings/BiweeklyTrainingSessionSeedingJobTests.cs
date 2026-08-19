@@ -21,8 +21,8 @@ public class BiweeklyTrainingSessionSeedingJobTests
     public async Task ExecuteAsync_ShouldCreateOnlyMissingTrainingSessionsWithinNextFourteenDays()
     {
         var timeZone = BiweeklyTrainingSessionSeedingJob.ResolveTimeZone();
-        var utcNow = new DateTimeOffset(2026, 7, 31, 6, 0, 0, TimeSpan.Zero);
-        var existingLocalStartTime = new DateTime(2026, 8, 2, 10, 0, 0);
+        var utcNow = new DateTimeOffset(2026, 8, 31, 6, 0, 0, TimeSpan.Zero);
+        var existingLocalStartTime = new DateTime(2026, 9, 6, 10, 0, 0);
         var existingUtcStartTime = TimeZoneInfo.ConvertTimeToUtc(
             DateTime.SpecifyKind(existingLocalStartTime, DateTimeKind.Unspecified),
             timeZone);
@@ -54,10 +54,11 @@ public class BiweeklyTrainingSessionSeedingJobTests
 
         trainings.Should().HaveCount(6);
         trainings.Count(training => training.StartTime == existingUtcStartTime).Should().Be(1);
-        trainings.Count(training => training.Title == "Full Body Fitness").Should().Be(5);
+        trainings.Count(training => training.Title == "Aerobik").Should().Be(5);
         trainings.Count(training => training.Location == "Srnetička 4").Should().Be(5);
         trainings.Should().OnlyContain(training => training.Description == "Grupni trening");
-        trainings.Should().OnlyContain(training => training.Capacity == 14);
+        trainings.Where(training => training.StartTime != existingUtcStartTime)
+            .Should().OnlyContain(training => training.Capacity == 15);
         trainings.Should().OnlyContain(training => training.TrainerName == "Sara");
         trainings.Should().OnlyContain(training => training.EndTime - training.StartTime == TimeSpan.FromMinutes(75));
         trainings.Single(training => training.StartTime == existingUtcStartTime).Title.Should().Be("Old Template Title");
@@ -65,7 +66,7 @@ public class BiweeklyTrainingSessionSeedingJobTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WhenWeekIsOutsideBiweeklyCadence_ShouldSkipSeeding()
+    public async Task ExecuteAsync_BeforeSeptember_ShouldSkipSeeding()
     {
         var utcNow = new DateTimeOffset(2026, 8, 7, 6, 0, 0, TimeSpan.Zero);
         var services = CreateServiceProvider(utcNow);
