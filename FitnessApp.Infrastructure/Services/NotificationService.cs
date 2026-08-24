@@ -331,33 +331,45 @@ public class NotificationService : INotificationService
         TrainingSession training,
         string cancellationReason)
     {
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
+
         return $"""
             Trening "{training.Title}" je otkazan.
 
-            Datum: {training.StartTime:dd.MM.yyyy.}
-            Vreme: {training.StartTime:HH:mm}
+            Datum: {localStartTime:dd.MM.yyyy.}
+            Vreme: {localStartTime:HH:mm}
             Razlog: {cancellationReason}
             """;
     }
 
     private static string BuildTrainingUpdatedMessage(TrainingSession training)
     {
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
+
         return $"""
             Trening "{training.Title}" je izmenjen.
 
-            Datum: {training.StartTime:dd.MM.yyyy.}
-            Vreme: {training.StartTime:HH:mm}
+            Datum: {localStartTime:dd.MM.yyyy.}
+            Vreme: {localStartTime:HH:mm}
             Lokacija: {training.Location}
             """;
     }
 
     private static string BuildTrainingCreatedMessage(TrainingSession training)
     {
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
+
         return $"""
             Novi trening "{training.Title}" je zakazan.
 
-            Datum: {training.StartTime:dd.MM.yyyy.}
-            Vreme: {training.StartTime:HH:mm}
+            Datum: {localStartTime:dd.MM.yyyy.}
+            Vreme: {localStartTime:HH:mm}
             Lokacija: {training.Location}
             Trener: {training.TrainerName}
             """;
