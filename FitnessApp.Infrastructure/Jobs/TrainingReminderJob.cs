@@ -41,6 +41,7 @@ public class TrainingReminderJob
                 .Where(reservation =>
                     reservation.Status == ReservationStatus.Reserved
                     && reservation.ReminderSentAt == null
+                    && !reservation.TrainingSession.IsCancelled
                     && reservation.TrainingSession.StartTime >= reminderWindowStart
                     && reservation.TrainingSession.StartTime < reminderWindowEnd)
                 .OrderBy(reservation => reservation.TrainingSession.StartTime)
@@ -106,12 +107,16 @@ public class TrainingReminderJob
 
     private static string BuildPlainTextBody(Reservation reservation)
     {
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            reservation.TrainingSession.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
+
         return $"""
             Zdravo {reservation.User.FirstName},
 
             Podsećamo vas da imate rezervisan trening "{reservation.TrainingSession.Title}" koji počinje za 24h.
 
-            Vreme: {reservation.TrainingSession.StartTime:dd.MM.yyyy. HH:mm}
+            Vreme: {localStartTime:dd.MM.yyyy. HH:mm}
             Lokacija: {reservation.TrainingSession.Location}
             Trener: {reservation.TrainingSession.TrainerName}
 
@@ -121,11 +126,14 @@ public class TrainingReminderJob
 
     private static string BuildHtmlBody(Reservation reservation)
     {
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            reservation.TrainingSession.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         var firstName = WebUtility.HtmlEncode(reservation.User.FirstName);
         var trainingTitle = WebUtility.HtmlEncode(reservation.TrainingSession.Title);
         var location = WebUtility.HtmlEncode(reservation.TrainingSession.Location);
         var trainerName = WebUtility.HtmlEncode(reservation.TrainingSession.TrainerName);
-        var startTime = WebUtility.HtmlEncode(reservation.TrainingSession.StartTime.ToString("dd.MM.yyyy. HH:mm"));
+        var startTime = WebUtility.HtmlEncode(localStartTime.ToString("dd.MM.yyyy. HH:mm"));
 
         return $$"""
             <!doctype html>

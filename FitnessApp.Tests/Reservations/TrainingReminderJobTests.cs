@@ -30,6 +30,12 @@ public class TrainingReminderJobTests
 
         emailService.SentEmails.Should().ContainSingle();
 
+        var expectedLocalStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
+        emailService.PlainTextBodies.Single().Should().Contain(
+            expectedLocalStartTime.ToString("dd.MM.yyyy. HH:mm"));
+
         var updatedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservation.Id);
         updatedReservation.ReminderSentAt.Should().NotBeNull();
     }
@@ -48,6 +54,30 @@ public class TrainingReminderJobTests
         var training = CreateTraining(DateTime.UtcNow.AddHours(24).AddMinutes(5));
         var reservation = CreateReservation(user.Id, training.Id);
         reservation.Status = status;
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await job.ExecuteAsync();
+
+        emailService.SentEmails.Should().BeEmpty();
+
+        var updatedReservation = await dbContext.Reservations.SingleAsync(x => x.Id == reservation.Id);
+        updatedReservation.ReminderSentAt.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenTrainingIsCancelled_ShouldNotSendReminder()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+        var job = services.GetRequiredService<TrainingReminderJob>();
+        var user = CreateUser();
+        var training = CreateTraining(DateTime.UtcNow.AddHours(24).AddMinutes(5));
+        var reservation = CreateReservation(user.Id, training.Id);
+        training.IsCancelled = true;
         dbContext.Users.Add(user);
         dbContext.TrainingSessions.Add(training);
         dbContext.Reservations.Add(reservation);
@@ -197,6 +227,7 @@ public class TrainingReminderJobTests
     private sealed class FakeEmailService : IEmailService
     {
         public List<string> SentEmails { get; } = new();
+        public List<string> PlainTextBodies { get; } = new();
         public HashSet<string> FailForEmails { get; } = new();
 
         public Task SendAsync(
@@ -212,6 +243,7 @@ public class TrainingReminderJobTests
             }
 
             SentEmails.Add(toEmail);
+            PlainTextBodies.Add(plainTextBody);
             return Task.CompletedTask;
         }
 
