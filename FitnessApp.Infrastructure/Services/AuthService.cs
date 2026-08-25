@@ -7,6 +7,7 @@ using FitnessApp.Domain.Constants;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
 using FitnessApp.Infrastructure.Identity;
+using FitnessApp.Infrastructure.Jobs;
 using FitnessApp.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -338,7 +339,9 @@ public class AuthService : IAuthService
         ApplicationUser user,
         CancellationToken cancellationToken)
     {
-        var registrationTimestamp = user.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+        var registrationTimestamp = TimeZoneInfo
+            .ConvertTimeFromUtc(user.CreatedAt, BiweeklyTrainingSessionSeedingJob.ResolveTimeZone())
+            .ToString("dd.MM.yyyy. HH:mm:ss");
         var fullName = $"{user.FirstName} {user.LastName}".Trim();
         var adminEmails = (await _userManager.GetUsersInRoleAsync(RoleConstants.Admin))
             .Where(admin => !admin.IsDeleted && !string.IsNullOrWhiteSpace(admin.Email))
