@@ -491,6 +491,44 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task GetMembershipHistoryAsync_ShouldReturnActualSingleSessionBalance()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var purchaseDate = DateTime.UtcNow.AddDays(-1);
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 2,
+            RemainingSessions = 1,
+            StartDate = purchaseDate,
+            IsActive = true,
+            CreatedAt = purchaseDate
+        });
+        dbContext.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PaymentType = PurchaseType.SingleSessions,
+            PaymentDate = purchaseDate,
+            NumberOfSessions = 2
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetMembershipHistoryAsync(user.Id);
+
+        var membership = response.Single();
+        membership.TotalSessions.Should().Be(2);
+        membership.RemainingSessions.Should().Be(1);
+        membership.IsCurrentlyActive.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task GetCurrentBalanceAsync_WhenPackageHasNoMatchingPayment_ShouldIgnoreIt()
     {
         var services = CreateServiceProvider();

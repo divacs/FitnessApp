@@ -160,33 +160,34 @@ public class BalanceService : IBalanceService
                 payment.NumberOfSessions))
             .ToListAsync(cancellationToken);
 
-        var singleSessionPayments = await _dbContext.Payments
+        var singleSessionBalances = await _dbContext.UserTrainingBalances
             .AsNoTracking()
-            .Where(payment =>
-                payment.UserId == userId
-                && payment.PaymentType == PurchaseType.SingleSessions)
-            .OrderByDescending(payment => payment.PaymentDate)
-            .ThenByDescending(payment => payment.CreatedAt)
+            .Where(balance =>
+                balance.UserId == userId
+                && balance.PurchaseType == PurchaseType.SingleSessions
+                && _dbContext.Payments.Any(payment =>
+                    payment.UserId == balance.UserId
+                    && payment.PaymentType == PurchaseType.SingleSessions))
+            .OrderByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
-
-        var hasActiveSingleSessions = await GetAvailableSingleSessionsQuery(userId)
-            .AnyAsync(cancellationToken);
 
         return memberships
             .Select(balance => balance.ToMembershipHistoryResponse(
                 FindPaymentDate(balance, paymentDates),
                 activeMembershipIds.Contains(balance.Id)))
-            .Concat(singleSessionPayments.Select(payment => new MembershipHistoryResponse
+            .Concat(singleSessionBalances.Select(balance => new MembershipHistoryResponse
             {
-                Id = payment.Id,
-                PurchaseType = payment.PaymentType,
+                Id = balance.Id,
+                PurchaseType = balance.PurchaseType,
                 PackageName = "Pojedinačni termini",
-                StartDate = payment.PaymentDate,
-                PaymentDate = payment.PaymentDate,
+                StartDate = balance.StartDate,
+                PaymentDate = balance.CreatedAt,
                 EndDate = null,
-                TotalSessions = payment.NumberOfSessions,
-                RemainingSessions = payment.NumberOfSessions,
-                IsCurrentlyActive = hasActiveSingleSessions
+                TotalSessions = balance.TotalSessions,
+                RemainingSessions = balance.RemainingSessions,
+                IsCurrentlyActive = balance.IsActive
+                    && !balance.IsExpired
+                    && balance.RemainingSessions > 0
             }))
             .OrderByDescending(membership => membership.PaymentDate)
             .ThenByDescending(membership => membership.StartDate)
