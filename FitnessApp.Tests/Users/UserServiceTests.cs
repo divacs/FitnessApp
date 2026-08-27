@@ -108,6 +108,47 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task GetUsersAsync_ShouldIncludeActivePackageWithZeroRemainingSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var userService = services.GetRequiredService<IUserService>();
+        var user = CreateUser(UserStatus.Verified);
+        var startDate = DateTime.UtcNow.AddDays(-1);
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 0,
+            StartDate = startDate,
+            EndDate = DateTime.UtcNow.AddDays(29),
+            IsActive = false
+        });
+        dbContext.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PaymentType = PurchaseType.Package12,
+            StartDate = startDate,
+            PaymentDate = DateTime.UtcNow,
+            NumberOfSessions = 12
+        });
+        await dbContext.SaveChangesAsync();
+
+        var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
+
+        var response = result.Items.Single(item => item.Id == user.Id);
+        response.ActivePackage.Should().NotBeNull();
+        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package12);
+        response.ActivePackage.RemainingSessions.Should().Be(0);
+        response.TotalRemainingSessions.Should().Be(0);
+    }
+
+    [Fact]
     public async Task GetProfileAsync_ShouldReturnCurrentUserProfile()
     {
         var services = CreateServiceProvider();

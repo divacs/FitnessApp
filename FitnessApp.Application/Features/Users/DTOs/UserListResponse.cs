@@ -1,3 +1,4 @@
+using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Domain.Enums;
 
 namespace FitnessApp.Application.Features.Users.DTOs;
@@ -25,4 +26,8 @@ public class UserListResponse
     public DateTime? UnblockedAt { get; init; }
 
     public DateTime CreatedAt { get; init; }
+
+    public UserTrainingBalanceResponse? ActivePackage { get; init; }
+
+    public int TotalRemainingSessions { get; init; }
 }

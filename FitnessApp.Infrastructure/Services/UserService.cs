@@ -2,6 +2,7 @@ using FitnessApp.Application.Common.Exceptions;
 using FitnessApp.Application.Common.Pagination;
 using FitnessApp.Application.Common.Responses;
 using FitnessApp.Application.Features.Emails.Interfaces;
+using FitnessApp.Application.Features.Memberships.DTOs;
 using FitnessApp.Application.Features.Users.DTOs;
 using FitnessApp.Application.Features.Users.Interfaces;
 using FitnessApp.Domain.Entities;
@@ -40,6 +41,7 @@ public class UserService : IUserService
         string? search = null,
         CancellationToken cancellationToken = default)
     {
+        var utcNow = DateTime.UtcNow;
         var query = _dbContext.Users
             .AsNoTracking()
             .Where(user => !user.IsDeleted)
@@ -71,7 +73,59 @@ public class UserService : IUserService
                 VerifiedAt = user.VerifiedAt,
                 BlockedAt = user.BlockedAt,
                 UnblockedAt = user.UnblockedAt,
-                CreatedAt = user.CreatedAt
+                CreatedAt = user.CreatedAt,
+                ActivePackage = _dbContext.UserTrainingBalances
+                    .Where(balance =>
+                        balance.UserId == user.Id
+                        && !balance.IsExpired
+                        && (balance.PurchaseType == PurchaseType.Package6
+                            || balance.PurchaseType == PurchaseType.Package12
+                            || balance.PurchaseType == PurchaseType.Package16)
+                        && balance.StartDate <= utcNow
+                        && balance.EndDate >= utcNow
+                        && _dbContext.Payments.Any(payment =>
+                            payment.UserId == balance.UserId
+                            && payment.PaymentType == balance.PurchaseType
+                            && payment.StartDate == balance.StartDate))
+                    .OrderBy(balance => balance.EndDate)
+                    .ThenByDescending(balance => balance.CreatedAt)
+                    .Select(balance => new UserTrainingBalanceResponse
+                    {
+                        Id = balance.Id,
+                        UserId = balance.UserId,
+                        PurchaseType = balance.PurchaseType,
+                        TotalSessions = balance.TotalSessions,
+                        RemainingSessions = balance.RemainingSessions,
+                        StartDate = balance.StartDate,
+                        EndDate = balance.EndDate,
+                        IsActive = balance.IsActive,
+                        IsExpired = balance.IsExpired,
+                        CarriedOverSessions = balance.CarriedOverSessions,
+                        ExpirationReminderSentAt = balance.ExpirationReminderSentAt,
+                        CreatedAt = balance.CreatedAt,
+                        Notes = balance.Notes
+                    })
+                    .FirstOrDefault(),
+                TotalRemainingSessions = _dbContext.UserTrainingBalances
+                    .Where(balance =>
+                        balance.UserId == user.Id
+                        && balance.IsActive
+                        && !balance.IsExpired
+                        && balance.RemainingSessions > 0
+                        && ((balance.PurchaseType == PurchaseType.Package6
+                                || balance.PurchaseType == PurchaseType.Package12
+                                || balance.PurchaseType == PurchaseType.Package16)
+                            ? balance.StartDate <= utcNow
+                                && balance.EndDate >= utcNow
+                                && _dbContext.Payments.Any(payment =>
+                                    payment.UserId == balance.UserId
+                                    && payment.PaymentType == balance.PurchaseType
+                                    && payment.StartDate == balance.StartDate)
+                            : balance.PurchaseType == PurchaseType.SingleSessions
+                                && _dbContext.Payments.Any(payment =>
+                                    payment.UserId == balance.UserId
+                                    && payment.PaymentType == balance.PurchaseType)))
+                    .Sum(balance => (int?)balance.RemainingSessions) ?? 0
             })
             .ToListAsync(cancellationToken);
 
