@@ -41,7 +41,7 @@ services:
       AppSettings__ContactPhone: ${APP_CONTACT_PHONE}
       AppSettings__AllowedOrigins: ${APP_ALLOWED_ORIGINS:-}
       AppSettings__FrontendUrl: ${APP_FRONTEND_URL}
-      AppSettings__CancellationDeadlineHours: ${APP_CANCELLATION_DEADLINE_HOURS:-12}
+      AppSettings__CancellationDeadlineHours: ${APP_CANCELLATION_DEADLINE_HOURS:-1}
       AppSettings__DefaultTrainingCapacity: ${APP_DEFAULT_TRAINING_CAPACITY:-12}
       AppSettings__AutoMarkAttendanceDelayMinutes: ${APP_AUTO_MARK_ATTENDANCE_DELAY_MINUTES:-60}
       SwaggerSettings__Enabled: ${SwaggerSettings__Enabled:-false}

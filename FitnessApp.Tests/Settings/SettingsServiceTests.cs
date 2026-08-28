@@ -21,7 +21,7 @@ public class SettingsServiceTests
 
         var response = await settingsService.GetSettingsAsync();
 
-        response.CancellationDeadlineHours.Should().Be(12);
+        response.CancellationDeadlineHours.Should().Be(1);
         response.ContactPhone.Should().Be("+381000000000");
         response.DefaultTrainingCapacity.Should().Be(10);
         response.AutoMarkAttendanceDelayMinutes.Should().Be(60);
@@ -112,7 +112,7 @@ public class SettingsServiceTests
         {
             ContactPhone = "+381000000000",
             FrontendUrl = "http://localhost:4200",
-            CancellationDeadlineHours = 12,
+                CancellationDeadlineHours = 1,
             DefaultTrainingCapacity = 10,
             AutoMarkAttendanceDelayMinutes = 60
         }));
