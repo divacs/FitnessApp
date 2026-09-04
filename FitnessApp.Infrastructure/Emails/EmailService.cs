@@ -13,15 +13,18 @@ namespace FitnessApp.Infrastructure.Emails;
 public class EmailService : IEmailService
 {
     private readonly EmailSettings _emailSettings;
+    private readonly AppSettings _appSettings;
     private readonly ISettingsService _settingsService;
     private readonly ILogger<EmailService> _logger;
 
     public EmailService(
         IOptions<EmailSettings> emailSettings,
+        IOptions<AppSettings> appSettings,
         ISettingsService settingsService,
         ILogger<EmailService> logger)
     {
         _emailSettings = emailSettings.Value;
+        _appSettings = appSettings.Value;
         _settingsService = settingsService;
         _logger = logger;
     }
@@ -35,7 +38,11 @@ public class EmailService : IEmailService
     {
         try
         {
-            var message = CreateMessage(toEmail, subject, htmlBody, plainTextBody);
+            var message = CreateMessage(
+                toEmail,
+                subject,
+                AddApplicationLink(htmlBody),
+                plainTextBody);
 
             using var smtpClient = new SmtpClient();
 
@@ -240,6 +247,21 @@ public class EmailService : IEmailService
         }.ToMessageBody();
 
         return message;
+    }
+
+    private string AddApplicationLink(string htmlBody)
+    {
+        if (string.IsNullOrWhiteSpace(_appSettings.FrontendUrl))
+        {
+            return htmlBody;
+        }
+
+        var frontendUrl = WebUtility.HtmlEncode(_appSettings.FrontendUrl.TrimEnd('/'));
+
+        return htmlBody.Replace(
+            "Sara - FitnessApp",
+            $$"""<a href="{{frontendUrl}}" style="color:#9B6EF3;text-decoration:none;">Sara - FitnessApp</a>""",
+            StringComparison.Ordinal);
     }
 
     private static string BuildHtmlTemplate(
