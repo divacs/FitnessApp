@@ -14,6 +14,68 @@ namespace FitnessApp.Tests.Memberships;
 public class BalanceServiceTests
 {
     [Fact]
+    public async Task UpdateBalanceAsync_ShouldUpdateRemainingSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package12,
+            TotalSessions = 12,
+            RemainingSessions = 12,
+            StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddMonths(1),
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.UpdateBalanceAsync(
+            balance.Id,
+            new UpdateBalanceRequest { RemainingSessions = 10 });
+
+        response.RemainingSessions.Should().Be(10);
+        response.IsActive.Should().BeTrue();
+        (await dbContext.UserTrainingBalances.SingleAsync()).RemainingSessions.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task UpdateBalanceAsync_WhenRemainingSessionsIsZero_ShouldDeactivateBalance()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var balance = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 1,
+            RemainingSessions = 1,
+            StartDate = DateTime.UtcNow,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
+        };
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.UpdateBalanceAsync(
+            balance.Id,
+            new UpdateBalanceRequest { RemainingSessions = 0 });
+
+        response.RemainingSessions.Should().Be(0);
+        response.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task CreatePackage12Async_ShouldCreateMonthlyPackageWithTwelveSessions()
     {
         var services = CreateServiceProvider();

@@ -508,12 +508,37 @@ public class BalanceService : IBalanceService
             balance.RemainingSessions);
     }
 
-    public Task<UserTrainingBalanceResponse> UpdateBalanceAsync(
+    public async Task<UserTrainingBalanceResponse> UpdateBalanceAsync(
         Guid balanceId,
         UpdateBalanceRequest request,
         CancellationToken cancellationToken = default)
     {
-        throw new BadRequestException("Ažuriranje stanja termina biće implementirano u narednom koraku.");
+        var balance = await _dbContext.UserTrainingBalances
+            .FirstOrDefaultAsync(balance => balance.Id == balanceId, cancellationToken);
+
+        if (balance is null)
+        {
+            throw new NotFoundException("Stanje termina nije pronađeno.");
+        }
+
+        if (request.RemainingSessions > balance.TotalSessions)
+        {
+            throw new BadRequestException("Preostali broj termina ne može biti veći od ukupnog broja termina.");
+        }
+
+        balance.RemainingSessions = request.RemainingSessions;
+        balance.IsActive = request.RemainingSessions > 0 && !balance.IsExpired;
+        balance.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Updated remaining sessions for balance {BalanceId} and user {UserId}. Remaining sessions: {RemainingSessions}.",
+            balance.Id,
+            balance.UserId,
+            balance.RemainingSessions);
+
+        return balance.ToResponse();
     }
 
     public Task DeleteBalanceAsync(
