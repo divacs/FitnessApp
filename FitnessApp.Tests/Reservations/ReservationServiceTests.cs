@@ -186,7 +186,7 @@ public class ReservationServiceTests
     }
 
     [Fact]
-    public async Task ReserveAsync_WhenUserAlreadyHasTwoUpcomingReservations_ShouldThrowConflict()
+    public async Task ReserveAsync_WhenUserAlreadyHasThreeUpcomingReservations_ShouldThrowConflict()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -195,19 +195,21 @@ public class ReservationServiceTests
         var training1 = CreateTraining(DateTime.UtcNow.AddDays(1), capacity: 10);
         var training2 = CreateTraining(DateTime.UtcNow.AddDays(2), capacity: 10);
         var training3 = CreateTraining(DateTime.UtcNow.AddDays(3), capacity: 10);
+        var training4 = CreateTraining(DateTime.UtcNow.AddDays(4), capacity: 10);
         dbContext.Users.Add(user);
-        dbContext.TrainingSessions.AddRange(training1, training2, training3);
+        dbContext.TrainingSessions.AddRange(training1, training2, training3, training4);
         dbContext.Reservations.AddRange(
             CreateReservation(user.Id, training1.Id),
-            CreateReservation(user.Id, training2.Id));
+            CreateReservation(user.Id, training2.Id),
+            CreateReservation(user.Id, training3.Id));
         await dbContext.SaveChangesAsync();
 
         var act = () => reservationService.ReserveAsync(
             user.Id,
-            new CreateReservationRequest { TrainingSessionId = training3.Id });
+            new CreateReservationRequest { TrainingSessionId = training4.Id });
 
         await act.Should().ThrowAsync<ConflictException>()
-            .WithMessage("Možete imati najviše 2 naredne rezervacije.");
+            .WithMessage("Možete imati najviše 3 naredne rezervacije.");
     }
 
     [Fact]

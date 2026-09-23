@@ -119,7 +119,7 @@ public class EmailService : IEmailService
         plainTextBody += $"""
 
             Kako koristiti aplikaciju:
-            - Rezervišite budući trening; možete imati najviše 2 naredne rezervacije.
+            - Rezervišite budući trening; možete imati najviše 3 naredne rezervacije.
             - Rezervacija je moguća i bez aktivnog paketa. Termin se skida tek kada prisustvujete treningu ili kada Sara označi izostanak.
             - Paket 6 i Paket 12 važe 30 dana od aktivacije. Pri obnovi Paketa 12 mogu se preneti najviše 2 neiskorišćena termina; termini iz Paketa 6 se ne prenose.
             - Pojedinačni termini ostaju aktivni dok ih ne iskoristite.
@@ -134,7 +134,7 @@ public class EmailService : IEmailService
             BuildHtmlTemplate(
                 "Nalog je verifikovan",
                 firstName,
-                $"Vaš nalog je uspešno verifikovan. Rezervišite budući trening (najviše 2 naredne rezervacije). Paket 6 i Paket 12 važe 30 dana; uz obnovu Paketa 12 prenose se najviše 2 neiskorišćena termina, a pojedinačni termini važe dok ih ne iskoristite. Rezervaciju otkažite najmanje {cancellationDeadlineHours} h pre treninga."),
+                $"Vaš nalog je uspešno verifikovan. Rezervišite budući trening (najviše 3 naredne rezervacije). Paket 6 i Paket 12 važe 30 dana; uz obnovu Paketa 12 prenose se najviše 2 neiskorišćena termina, a pojedinačni termini važe dok ih ne iskoristite. Rezervaciju otkažite najmanje {cancellationDeadlineHours} h pre treninga."),
             plainTextBody,
             cancellationToken);
     }

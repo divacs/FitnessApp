@@ -19,7 +19,7 @@ namespace FitnessApp.Infrastructure.Services;
 /// </summary>
 public class ReservationService : IReservationService
 {
-    private const int MaxUpcomingReservations = 2;
+    private const int MaxUpcomingReservations = 3;
 
     private readonly AppDbContext _dbContext;
     private readonly IBalanceService _balanceService;
@@ -386,7 +386,7 @@ public class ReservationService : IReservationService
 
         if (upcomingReservationCount >= MaxUpcomingReservations)
         {
-            throw new ConflictException("Možete imati najviše 2 naredne rezervacije.");
+            throw new ConflictException("Možete imati najviše 3 naredne rezervacije.");
         }
     }
 
