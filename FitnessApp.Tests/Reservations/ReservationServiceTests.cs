@@ -19,6 +19,33 @@ namespace FitnessApp.Tests.Reservations;
 public class ReservationServiceTests
 {
     [Fact]
+    public async Task RecordManualAttendanceAsync_ShouldCreateAttendedReservationWithoutConsumingSession()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var reservationService = services.GetRequiredService<IReservationService>();
+        var user = CreateUser(UserStatus.Verified);
+        var training = CreateTraining(DateTime.UtcNow.AddHours(-2), capacity: 10);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        await dbContext.SaveChangesAsync();
+
+        var response = await reservationService.RecordManualAttendanceAsync(
+            new RecordManualAttendanceRequest
+            {
+                UserId = user.Id,
+                TrainingSessionId = training.Id,
+                Notes = "Došla bez rezervacije"
+            },
+            Guid.NewGuid());
+
+        response.Status.Should().Be(ReservationStatus.Attended);
+        response.AutoMarkedAttended.Should().BeFalse();
+        response.Notes.Should().Be("Došla bez rezervacije");
+        dbContext.UserTrainingBalances.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ReserveAsync_WhenUserHasNoBalance_ShouldCreateReservation()
     {
         var services = CreateServiceProvider();

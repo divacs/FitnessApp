@@ -46,6 +46,14 @@ public interface IReservationService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Records attendance for a user who attended without a prior reservation. This does not consume a session.
+    /// </summary>
+    Task<ReservationResponse> RecordManualAttendanceAsync(
+        RecordManualAttendanceRequest request,
+        Guid adminId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Marks a reserved training as attended and consumes one session.
     /// </summary>
     Task<ReservationResponse> MarkAsAttendedAsync(

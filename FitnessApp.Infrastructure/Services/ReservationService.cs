@@ -354,6 +354,83 @@ public class ReservationService : IReservationService
         return reservation.ToResponse();
     }
 
+    public async Task<ReservationResponse> RecordManualAttendanceAsync(
+        RecordManualAttendanceRequest request,
+        Guid adminId,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateUserId(request.UserId);
+        ValidateUserId(adminId);
+
+        if (request.TrainingSessionId == Guid.Empty)
+        {
+            throw new BadRequestException("Trening je obavezan.");
+        }
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(user => user.Id == request.UserId && !user.IsDeleted, cancellationToken);
+
+        if (user is null)
+        {
+            throw new NotFoundException("Korisnik nije pronađen.");
+        }
+
+        var training = await _dbContext.TrainingSessions
+            .FirstOrDefaultAsync(training => training.Id == request.TrainingSessionId, cancellationToken);
+
+        if (training is null)
+        {
+            throw new NotFoundException("Trening nije pronađen.");
+        }
+
+        if (training.IsCancelled)
+        {
+            throw new ConflictException("Trening je otkazan.");
+        }
+
+        if (training.EndTime > DateTime.UtcNow)
+        {
+            throw new ConflictException("Trening još nije završen.");
+        }
+
+        var hasExistingAttendance = await _dbContext.Reservations
+            .AnyAsync(
+                reservation => reservation.UserId == request.UserId
+                    && reservation.TrainingSessionId == request.TrainingSessionId
+                    && reservation.Status != ReservationStatus.Cancelled,
+                cancellationToken);
+
+        if (hasExistingAttendance)
+        {
+            throw new ConflictException("Korisnik već ima evidentiranu rezervaciju za ovaj trening.");
+        }
+
+        var utcNow = DateTime.UtcNow;
+        var reservation = new Reservation
+        {
+            UserId = user.Id,
+            TrainingSessionId = training.Id,
+            Status = ReservationStatus.Attended,
+            ReservedAt = utcNow,
+            AttendedAt = utcNow,
+            AutoMarkedAttended = false,
+            Notes = request.Notes,
+            User = user,
+            TrainingSession = training
+        };
+
+        _dbContext.Reservations.Add(reservation);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Recorded manual attendance for user {UserId} and training {TrainingSessionId} by admin {AdminId} without consuming a session.",
+            user.Id,
+            training.Id,
+            adminId);
+
+        return reservation.ToResponse();
+    }
+
     private async Task EnsureReservationLimitsAsync(
         Guid userId,
         Guid trainingSessionId,

@@ -57,6 +57,19 @@ public class AdminReservationsController : ControllerBase
         return Ok(ApiResponse<ReservationResponse>.Success(reservation));
     }
 
+    [HttpPost("manual-attendance")]
+    public async Task<ActionResult<ApiResponse<ReservationResponse>>> RecordManualAttendance(
+        RecordManualAttendanceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var adminId = User.GetUserId();
+        var reservation = await _reservationService.RecordManualAttendanceAsync(request, adminId, cancellationToken);
+
+        return Ok(ApiResponse<ReservationResponse>.Success(
+            reservation,
+            "Prisustvo je evidentirano bez skidanja termina."));
+    }
+
     [HttpPost("{id:guid}/attended")]
     public async Task<ActionResult<ApiResponse<ReservationResponse>>> MarkAsAttended(
         Guid id,
