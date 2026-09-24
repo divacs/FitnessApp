@@ -111,12 +111,12 @@ public class TrainingServiceTests
     }
 
     [Fact]
-    public async Task GetTrainingByIdAsync_ShouldReturnTrainingWithReservedCount()
+    public async Task GetTrainingByIdAsync_ShouldReturnCountOfNonCancelledReservations()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
         var trainingService = services.GetRequiredService<ITrainingService>();
-        var training = CreateTraining(DateTime.UtcNow.AddDays(1), "Pilates");
+        var training = CreateTraining(DateTime.UtcNow.AddDays(-1), "Pilates");
         training.Reservations.Add(new Reservation
         {
             Id = Guid.NewGuid(),
@@ -131,14 +131,28 @@ public class TrainingServiceTests
             TrainingSessionId = training.Id,
             Status = ReservationStatus.Cancelled
         });
+        training.Reservations.Add(new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            TrainingSessionId = training.Id,
+            Status = ReservationStatus.Attended
+        });
+        training.Reservations.Add(new Reservation
+        {
+            Id = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            TrainingSessionId = training.Id,
+            Status = ReservationStatus.NoShow
+        });
         dbContext.TrainingSessions.Add(training);
         await dbContext.SaveChangesAsync();
 
         var response = await trainingService.GetTrainingByIdAsync(training.Id);
 
         response.Id.Should().Be(training.Id);
-        response.ReservedCount.Should().Be(1);
-        response.AvailableSpots.Should().Be(training.Capacity - 1);
+        response.ReservedCount.Should().Be(3);
+        response.AvailableSpots.Should().Be(training.Capacity - 3);
     }
 
     [Fact]

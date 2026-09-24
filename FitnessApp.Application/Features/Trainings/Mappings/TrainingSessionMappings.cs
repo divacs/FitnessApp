@@ -49,7 +49,7 @@ public static class TrainingSessionMappings
     private static int GetReservedCount(this TrainingSession trainingSession)
     {
         return trainingSession.Reservations
-            .Count(reservation => reservation.Status == ReservationStatus.Reserved);
+            .Count(reservation => reservation.Status != ReservationStatus.Cancelled);
     }
 
     private static int GetAvailableSpots(int capacity, int reservedCount)
