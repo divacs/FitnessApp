@@ -86,7 +86,7 @@ public class UserService : IUserService
                         && _dbContext.Payments.Any(payment =>
                             payment.UserId == balance.UserId
                             && payment.PaymentType == balance.PurchaseType
-                            && payment.StartDate == balance.StartDate))
+                            && (payment.StartDate == balance.StartDate || payment.StartDate == null)))
                     .OrderBy(balance => balance.EndDate)
                     .ThenByDescending(balance => balance.CreatedAt)
                     .Select(balance => new UserTrainingBalanceResponse
@@ -120,7 +120,7 @@ public class UserService : IUserService
                                 && _dbContext.Payments.Any(payment =>
                                     payment.UserId == balance.UserId
                                     && payment.PaymentType == balance.PurchaseType
-                                    && payment.StartDate == balance.StartDate)
+                                    && (payment.StartDate == balance.StartDate || payment.StartDate == null))
                             : balance.PurchaseType == PurchaseType.SingleSessions
                                 && _dbContext.Payments.Any(payment =>
                                     payment.UserId == balance.UserId

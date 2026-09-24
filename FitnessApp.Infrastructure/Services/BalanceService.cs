@@ -597,7 +597,7 @@ public class BalanceService : IBalanceService
                 && _dbContext.Payments.Any(payment =>
                     payment.UserId == balance.UserId
                     && payment.PaymentType == balance.PurchaseType
-                    && payment.StartDate == balance.StartDate));
+                    && (payment.StartDate == balance.StartDate || payment.StartDate == null)));
     }
 
     private IQueryable<UserTrainingBalance> GetAvailableSingleSessionsQuery(Guid userId)

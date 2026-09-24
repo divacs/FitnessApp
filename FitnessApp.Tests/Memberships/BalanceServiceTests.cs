@@ -591,6 +591,48 @@ public class BalanceServiceTests
     }
 
     [Fact]
+    public async Task GetCurrentBalanceAsync_WhenPackage6HasLegacyPaymentWithoutStartDate_ShouldReturnRemainingSessions()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var balanceService = services.GetRequiredService<IBalanceService>();
+        var user = CreateUser();
+        var startDate = DateTime.UtcNow.AddDays(-2);
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 6,
+            StartDate = startDate,
+            EndDate = startDate.AddMonths(1),
+            IsActive = true,
+            IsExpired = false,
+            CreatedAt = startDate
+        });
+        dbContext.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PaymentType = PurchaseType.Package6,
+            NumberOfSessions = 6,
+            Amount = 3000,
+            PaymentDate = startDate,
+            CreatedAt = startDate
+        });
+        await dbContext.SaveChangesAsync();
+
+        var response = await balanceService.GetCurrentBalanceAsync(user.Id);
+
+        response.ActivePackage.Should().NotBeNull();
+        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package6);
+        response.ActivePackage.RemainingSessions.Should().Be(6);
+        response.TotalRemainingSessions.Should().Be(6);
+    }
+
+    [Fact]
     public async Task GetCurrentBalanceAsync_WhenPackageHasNoMatchingPayment_ShouldIgnoreIt()
     {
         var services = CreateServiceProvider();
