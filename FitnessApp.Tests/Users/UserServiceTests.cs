@@ -170,6 +170,48 @@ public class UserServiceTests
     }
 
     [Fact]
+    public async Task GetUsersAsync_WhenOnlySingleSessionsAreAvailable_ShouldReturnThemAsActivePackage()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var userService = services.GetRequiredService<IUserService>();
+        var user = CreateUser(UserStatus.Verified);
+        var startDate = DateTime.UtcNow.AddDays(-1);
+
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.SingleSessions,
+            TotalSessions = 3,
+            RemainingSessions = 1,
+            StartDate = startDate,
+            IsActive = true,
+            IsExpired = false
+        });
+        dbContext.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PaymentType = PurchaseType.SingleSessions,
+            NumberOfSessions = 3,
+            Amount = 1500,
+            PaymentDate = startDate,
+            CreatedAt = startDate
+        });
+        await dbContext.SaveChangesAsync();
+
+        var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
+
+        var response = result.Items.Single(item => item.Id == user.Id);
+        response.ActivePackage.Should().NotBeNull();
+        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.SingleSessions);
+        response.ActivePackage.RemainingSessions.Should().Be(1);
+        response.TotalRemainingSessions.Should().Be(1);
+    }
+
+    [Fact]
     public async Task GetProfileAsync_ShouldReturnCurrentUserProfile()
     {
         var services = CreateServiceProvider();

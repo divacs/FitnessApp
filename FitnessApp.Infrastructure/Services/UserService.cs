@@ -80,16 +80,22 @@ public class UserService : IUserService
                         && balance.IsActive
                         && !balance.IsExpired
                         && balance.RemainingSessions > 0
-                        && (balance.PurchaseType == PurchaseType.Package6
-                            || balance.PurchaseType == PurchaseType.Package12
-                            || balance.PurchaseType == PurchaseType.Package16)
-                        && balance.StartDate <= utcNow
-                        && balance.EndDate >= utcNow
-                        && _dbContext.Payments.Any(payment =>
-                            payment.UserId == balance.UserId
-                            && payment.PaymentType == balance.PurchaseType
-                            && (payment.StartDate == balance.StartDate || payment.StartDate == null)))
-                    .OrderBy(balance => balance.EndDate)
+                        && (
+                            ((balance.PurchaseType == PurchaseType.Package6
+                                || balance.PurchaseType == PurchaseType.Package12
+                                || balance.PurchaseType == PurchaseType.Package16)
+                                && balance.StartDate <= utcNow
+                                && balance.EndDate >= utcNow
+                                && _dbContext.Payments.Any(payment =>
+                                    payment.UserId == balance.UserId
+                                    && payment.PaymentType == balance.PurchaseType
+                                    && (payment.StartDate == balance.StartDate || payment.StartDate == null)))
+                            || (balance.PurchaseType == PurchaseType.SingleSessions
+                                && _dbContext.Payments.Any(payment =>
+                                    payment.UserId == balance.UserId
+                                    && payment.PaymentType == PurchaseType.SingleSessions))))
+                    .OrderBy(balance => balance.PurchaseType == PurchaseType.SingleSessions)
+                    .ThenBy(balance => balance.EndDate)
                     .ThenByDescending(balance => balance.CreatedAt)
                     .Select(balance => new UserTrainingBalanceResponse
                     {
