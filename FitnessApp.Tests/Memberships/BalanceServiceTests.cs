@@ -590,8 +590,13 @@ public class BalanceServiceTests
         membership.IsCurrentlyActive.Should().BeTrue();
     }
 
-    [Fact]
-    public async Task GetCurrentBalanceAsync_WhenPackage6HasLegacyPaymentWithoutStartDate_ShouldReturnRemainingSessions()
+    [Theory]
+    [InlineData(PurchaseType.Package6, 6)]
+    [InlineData(PurchaseType.Package12, 12)]
+    [InlineData(PurchaseType.Package16, 16)]
+    public async Task GetCurrentBalanceAsync_WhenMonthlyPackageHasLegacyPaymentWithoutStartDate_ShouldReturnRemainingSessions(
+        PurchaseType purchaseType,
+        int sessionCount)
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -603,9 +608,9 @@ public class BalanceServiceTests
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            PurchaseType = PurchaseType.Package6,
-            TotalSessions = 6,
-            RemainingSessions = 6,
+            PurchaseType = purchaseType,
+            TotalSessions = sessionCount,
+            RemainingSessions = sessionCount,
             StartDate = startDate,
             EndDate = startDate.AddMonths(1),
             IsActive = true,
@@ -616,8 +621,8 @@ public class BalanceServiceTests
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
-            PaymentType = PurchaseType.Package6,
-            NumberOfSessions = 6,
+            PaymentType = purchaseType,
+            NumberOfSessions = sessionCount,
             Amount = 3000,
             PaymentDate = startDate,
             CreatedAt = startDate
@@ -627,9 +632,18 @@ public class BalanceServiceTests
         var response = await balanceService.GetCurrentBalanceAsync(user.Id);
 
         response.ActivePackage.Should().NotBeNull();
-        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package6);
-        response.ActivePackage.RemainingSessions.Should().Be(6);
-        response.TotalRemainingSessions.Should().Be(6);
+        response.ActivePackage!.PurchaseType.Should().Be(purchaseType);
+        response.ActivePackage.RemainingSessions.Should().Be(sessionCount);
+        response.TotalRemainingSessions.Should().Be(sessionCount);
+
+        var balances = await balanceService.GetUserBalancesAsync(user.Id);
+        var balanceHistory = await balanceService.GetBalanceHistoryAsync(user.Id);
+        var membershipHistory = await balanceService.GetMembershipHistoryAsync(user.Id);
+
+        balances.Should().ContainSingle(balance => balance.RemainingSessions == sessionCount);
+        balanceHistory.Should().ContainSingle(balance => balance.RemainingSessions == sessionCount);
+        membershipHistory.Should().ContainSingle(membership =>
+            membership.RemainingSessions == sessionCount && membership.IsCurrentlyActive);
     }
 
     [Fact]

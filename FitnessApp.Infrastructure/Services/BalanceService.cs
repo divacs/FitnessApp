@@ -108,7 +108,7 @@ public class BalanceService : IBalanceService
                             || _dbContext.Payments.Any(payment =>
                                 payment.UserId == balance.UserId
                                 && payment.PaymentType == balance.PurchaseType
-                                && payment.StartDate == balance.StartDate)))
+                                && (payment.StartDate == balance.StartDate || payment.StartDate == null))))
             .OrderByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
 
@@ -140,7 +140,7 @@ public class BalanceService : IBalanceService
                 && _dbContext.Payments.Any(payment =>
                     payment.UserId == balance.UserId
                     && payment.PaymentType == balance.PurchaseType
-                    && payment.StartDate == balance.StartDate))
+                    && (payment.StartDate == balance.StartDate || payment.StartDate == null)))
             .OrderByDescending(balance => balance.StartDate)
             .ThenByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -216,7 +216,7 @@ public class BalanceService : IBalanceService
                             || _dbContext.Payments.Any(payment =>
                                 payment.UserId == balance.UserId
                                 && payment.PaymentType == balance.PurchaseType
-                                && payment.StartDate == balance.StartDate)))
+                                && (payment.StartDate == balance.StartDate || payment.StartDate == null))))
             .OrderByDescending(balance => balance.StartDate)
             .ThenByDescending(balance => balance.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -771,7 +771,7 @@ public class BalanceService : IBalanceService
         var payment = paymentDates.FirstOrDefault(payment =>
             payment.PaymentType == balance.PurchaseType
             && payment.NumberOfSessions == GetBasePackageSessionCount(balance.PurchaseType)
-            && payment.StartDate == balance.StartDate);
+            && (payment.StartDate == balance.StartDate || payment.StartDate == null));
 
         return payment?.PaymentDate;
     }
@@ -798,7 +798,7 @@ public class BalanceService : IBalanceService
             .Where(balance => _dbContext.Payments.Any(payment =>
                 payment.UserId == balance.UserId
                 && payment.PaymentType == balance.PurchaseType
-                && payment.StartDate == balance.StartDate))
+                && (payment.StartDate == balance.StartDate || payment.StartDate == null)))
             .OrderByDescending(balance => balance.EndDate)
             .ThenByDescending(balance => balance.StartDate)
             .Select(balance => balance.EndDate)
