@@ -108,7 +108,7 @@ public class UserServiceTests
     }
 
     [Fact]
-    public async Task GetUsersAsync_ShouldIncludeActivePackageWithZeroRemainingSessions()
+    public async Task GetUsersAsync_ShouldPreferPackageWithRemainingSessionsOverExhaustedPackage()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -117,7 +117,7 @@ public class UserServiceTests
         var startDate = DateTime.UtcNow.AddDays(-1);
 
         dbContext.Users.Add(user);
-        dbContext.UserTrainingBalances.Add(new UserTrainingBalance
+        var exhaustedPackage = new UserTrainingBalance
         {
             Id = Guid.NewGuid(),
             UserId = user.Id,
@@ -127,7 +127,19 @@ public class UserServiceTests
             StartDate = startDate,
             EndDate = DateTime.UtcNow.AddDays(29),
             IsActive = false
-        });
+        };
+        var activePackage = new UserTrainingBalance
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PurchaseType = PurchaseType.Package6,
+            TotalSessions = 6,
+            RemainingSessions = 6,
+            StartDate = startDate,
+            EndDate = DateTime.UtcNow.AddDays(29),
+            IsActive = true
+        };
+        dbContext.UserTrainingBalances.AddRange(exhaustedPackage, activePackage);
         dbContext.Payments.Add(new Payment
         {
             Id = Guid.NewGuid(),
@@ -137,15 +149,24 @@ public class UserServiceTests
             PaymentDate = DateTime.UtcNow,
             NumberOfSessions = 12
         });
+        dbContext.Payments.Add(new Payment
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            PaymentType = PurchaseType.Package6,
+            StartDate = startDate,
+            PaymentDate = DateTime.UtcNow,
+            NumberOfSessions = 6
+        });
         await dbContext.SaveChangesAsync();
 
         var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
 
         var response = result.Items.Single(item => item.Id == user.Id);
         response.ActivePackage.Should().NotBeNull();
-        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package12);
-        response.ActivePackage.RemainingSessions.Should().Be(0);
-        response.TotalRemainingSessions.Should().Be(0);
+        response.ActivePackage!.PurchaseType.Should().Be(PurchaseType.Package6);
+        response.ActivePackage.RemainingSessions.Should().Be(6);
+        response.TotalRemainingSessions.Should().Be(6);
     }
 
     [Fact]

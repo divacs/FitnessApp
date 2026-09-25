@@ -77,7 +77,9 @@ public class UserService : IUserService
                 ActivePackage = _dbContext.UserTrainingBalances
                     .Where(balance =>
                         balance.UserId == user.Id
+                        && balance.IsActive
                         && !balance.IsExpired
+                        && balance.RemainingSessions > 0
                         && (balance.PurchaseType == PurchaseType.Package6
                             || balance.PurchaseType == PurchaseType.Package12
                             || balance.PurchaseType == PurchaseType.Package16)
