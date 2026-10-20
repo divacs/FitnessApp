@@ -30,7 +30,7 @@ public class AdminReservationsController : ControllerBase
         [FromQuery] Guid? userId = null,
         [FromQuery] Guid? trainingSessionId = null,
         [FromQuery] string? sortBy = null,
-        [FromQuery] bool sortDescending = false,
+        [FromQuery] bool sortDescending = true,
         CancellationToken cancellationToken = default)
     {
         var reservations = await _reservationService.GetReservationsAsync(
