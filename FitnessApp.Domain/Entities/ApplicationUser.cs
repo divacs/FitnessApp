@@ -49,6 +49,11 @@ public class ApplicationUser : IdentityUser<Guid>
     public bool IsDeleted { get; set; }
 
     /// <summary>
+    /// Indicates whether the user is marked as a favorite by an administrator.
+    /// </summary>
+    public bool IsFavorite { get; set; }
+
+    /// <summary>
     /// Date and time when the user was created.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

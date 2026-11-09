@@ -99,12 +99,34 @@ public class UserServiceTests
             page: 1,
             pageSize: 1,
             status: UserStatus.Verified,
-            search: "a");
+            search: "a",
+            favoritesOnly: false);
 
         result.TotalCount.Should().Be(2);
         result.TotalPages.Should().Be(2);
         result.Items.Should().HaveCount(1);
         result.Items.Single().UserStatus.Should().Be(UserStatus.Verified);
+    }
+
+    [Fact]
+    public async Task GetUsersAsync_ShouldReturnOnlyFavoriteUsersByDefault()
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var userService = services.GetRequiredService<IUserService>();
+        var favoriteUser = CreateUser(UserStatus.Verified, "Sara", "Petrovic", "sara@example.com");
+        favoriteUser.IsFavorite = true;
+
+        dbContext.Users.AddRange(
+            favoriteUser,
+            CreateUser(UserStatus.Verified, "Mila", "Nikolic", "mila@example.com"));
+        await dbContext.SaveChangesAsync();
+
+        var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
+
+        result.Items.Should().ContainSingle();
+        result.Items.Single().Id.Should().Be(favoriteUser.Id);
+        result.Items.Single().IsFavorite.Should().BeTrue();
     }
 
     [Fact]
@@ -160,7 +182,7 @@ public class UserServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
+        var result = await userService.GetUsersAsync(page: 1, pageSize: 20, favoritesOnly: false);
 
         var response = result.Items.Single(item => item.Id == user.Id);
         response.ActivePackage.Should().NotBeNull();
@@ -202,7 +224,7 @@ public class UserServiceTests
         });
         await dbContext.SaveChangesAsync();
 
-        var result = await userService.GetUsersAsync(page: 1, pageSize: 20);
+        var result = await userService.GetUsersAsync(page: 1, pageSize: 20, favoritesOnly: false);
 
         var response = result.Items.Single(item => item.Id == user.Id);
         response.ActivePackage.Should().NotBeNull();

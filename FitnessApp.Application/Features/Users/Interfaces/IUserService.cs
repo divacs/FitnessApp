@@ -11,6 +11,7 @@ public interface IUserService
         int pageSize,
         UserStatus? status = null,
         string? search = null,
+        bool favoritesOnly = true,
         CancellationToken cancellationToken = default);
 
     Task<UserProfileResponse> GetProfileAsync(Guid userId, CancellationToken cancellationToken = default);
@@ -30,4 +31,6 @@ public interface IUserService
     Task BlockUserAsync(Guid userId, CancellationToken cancellationToken = default);
 
     Task UnblockUserAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    Task SetFavoriteAsync(Guid userId, bool isFavorite, CancellationToken cancellationToken = default);
 }

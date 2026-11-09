@@ -185,7 +185,8 @@ public class AdminDashboardService : IAdminDashboardService
             VerifiedAt = user.VerifiedAt,
             BlockedAt = user.BlockedAt,
             UnblockedAt = user.UnblockedAt,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            IsFavorite = user.IsFavorite
         };
     }
 }

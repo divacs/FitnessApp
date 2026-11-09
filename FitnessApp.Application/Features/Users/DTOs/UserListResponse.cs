@@ -27,6 +27,8 @@ public class UserListResponse
 
     public DateTime CreatedAt { get; init; }
 
+    public bool IsFavorite { get; init; }
+
     public UserTrainingBalanceResponse? ActivePackage { get; init; }
 
     public int TotalRemainingSessions { get; init; }

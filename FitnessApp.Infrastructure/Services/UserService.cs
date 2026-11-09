@@ -39,13 +39,15 @@ public class UserService : IUserService
         int pageSize,
         UserStatus? status = null,
         string? search = null,
+        bool favoritesOnly = true,
         CancellationToken cancellationToken = default)
     {
         var utcNow = DateTime.UtcNow;
         var query = _dbContext.Users
             .AsNoTracking()
             .Where(user => !user.IsDeleted)
-            .WhereIf(status.HasValue, user => user.UserStatus == status!.Value);
+            .WhereIf(status.HasValue, user => user.UserStatus == status!.Value)
+            .WhereIf(favoritesOnly, user => user.IsFavorite);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -74,6 +76,7 @@ public class UserService : IUserService
                 BlockedAt = user.BlockedAt,
                 UnblockedAt = user.UnblockedAt,
                 CreatedAt = user.CreatedAt,
+                IsFavorite = user.IsFavorite,
                 ActivePackage = _dbContext.UserTrainingBalances
                     .Where(balance =>
                         balance.UserId == user.Id
@@ -263,6 +266,21 @@ public class UserService : IUserService
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("User {UserId} unblocked by admin.", user.Id);
+    }
+
+    public async Task SetFavoriteAsync(
+        Guid userId,
+        bool isFavorite,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await GetUserAsync(userId, cancellationToken);
+
+        user.IsFavorite = isFavorite;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("User {UserId} favorite status set to {IsFavorite} by admin.", user.Id, isFavorite);
     }
 
     private async Task<ApplicationUser> GetUserAsync(

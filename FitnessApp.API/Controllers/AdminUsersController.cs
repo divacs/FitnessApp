@@ -26,6 +26,7 @@ public class AdminUsersController : ControllerBase
         [FromQuery] int pageSize = 20,
         [FromQuery] UserStatus? status = null,
         [FromQuery] string? search = null,
+        [FromQuery] bool favoritesOnly = true,
         CancellationToken cancellationToken = default)
     {
         var users = await _userService.GetUsersAsync(
@@ -33,6 +34,7 @@ public class AdminUsersController : ControllerBase
             pageSize,
             status,
             search,
+            favoritesOnly,
             cancellationToken);
 
         return Ok(ApiResponse<PaginatedResponse<UserListResponse>>.Success(users));
@@ -66,5 +68,16 @@ public class AdminUsersController : ControllerBase
         await _userService.UnblockUserAsync(id, cancellationToken);
 
         return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Korisnik je odblokiran."));
+    }
+
+    [HttpPut("{id:guid}/favorite")]
+    public async Task<ActionResult<ApiResponse<EmptyResponse>>> SetFavorite(
+        Guid id,
+        [FromQuery] bool isFavorite,
+        CancellationToken cancellationToken)
+    {
+        await _userService.SetFavoriteAsync(id, isFavorite, cancellationToken);
+
+        return Ok(ApiResponse<EmptyResponse>.Success(EmptyResponse.Value, "Status omiljenog korisnika je ažuriran."));
     }
 }
