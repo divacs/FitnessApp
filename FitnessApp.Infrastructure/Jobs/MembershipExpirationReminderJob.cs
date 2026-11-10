@@ -40,6 +40,8 @@ public class MembershipExpirationReminderJob
                     && !balance.IsExpired
                     && balance.RemainingSessions > 0
                     && balance.ExpirationReminderSentAt == null
+                    && !balance.User.IsDeleted
+                    && balance.User.UserStatus == UserStatus.Verified
                     && (balance.PurchaseType == PurchaseType.Package12
                         || balance.PurchaseType == PurchaseType.Package6
                         || balance.PurchaseType == PurchaseType.Package16)

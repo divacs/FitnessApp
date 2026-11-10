@@ -72,6 +72,28 @@ public class MembershipExpirationReminderJobTests
         emailService.MembershipExpirationEmails.Should().BeEmpty();
     }
 
+    [Theory]
+    [InlineData(UserStatus.Unverified)]
+    [InlineData(UserStatus.Blocked)]
+    public async Task ExecuteAsync_WhenUserIsNotVerified_ShouldNotSendReminder(UserStatus userStatus)
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+        var job = services.GetRequiredService<MembershipExpirationReminderJob>();
+        var user = CreateUser();
+        user.UserStatus = userStatus;
+        var balance = CreateBalance(user.Id, PurchaseType.Package12, DateTime.UtcNow.AddDays(3).Date.AddHours(10));
+        dbContext.Users.Add(user);
+        dbContext.UserTrainingBalances.Add(balance);
+        await dbContext.SaveChangesAsync();
+
+        await job.ExecuteAsync();
+
+        emailService.MembershipExpirationEmails.Should().BeEmpty();
+        (await dbContext.UserTrainingBalances.SingleAsync(x => x.Id == balance.Id)).ExpirationReminderSentAt.Should().BeNull();
+    }
+
     [Fact]
     public async Task ExecuteAsync_WhenPackageExpiresOutsideThreeDayWindow_ShouldNotSendReminder()
     {

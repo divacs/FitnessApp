@@ -2,6 +2,7 @@ using FitnessApp.Application.Features.Notifications.DTOs;
 using FitnessApp.Application.Features.Notifications.Interfaces;
 using FitnessApp.Domain.Entities;
 using FitnessApp.Domain.Enums;
+using FitnessApp.Infrastructure.Jobs;
 using FitnessApp.Infrastructure.Persistence;
 using FitnessApp.Infrastructure.Services;
 using FluentAssertions;
@@ -109,7 +110,7 @@ public class NotificationServiceTests
     }
 
     [Fact]
-    public async Task SendTrainingCancelledNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForAllUsers()
+    public async Task SendTrainingCancelledNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForVerifiedUsersOnly()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -126,24 +127,25 @@ public class NotificationServiceTests
         await notificationService.SendTrainingCancelledNotificationsAsync(training.Id, "Sara je odsutna");
 
         var notification = await dbContext.Notifications.SingleAsync();
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         notification.Type.Should().Be(NotificationType.TrainingCancelled);
         notification.Message.Should().Contain("Sara je odsutna");
-        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
-        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+        notification.Message.Should().Contain(localStartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(localStartTime.ToString("HH:mm"));
 
         var userNotifications = await dbContext.UserNotifications.ToListAsync();
-        userNotifications.Should().HaveCount(3);
+        userNotifications.Should().ContainSingle();
         userNotifications.Select(x => x.UserId).Should().BeEquivalentTo(new[]
         {
-            firstUser.Id,
-            secondUser.Id,
-            thirdUser.Id
+            firstUser.Id
         });
-        backgroundJobClient.CreatedJobs.Should().HaveCount(3);
+        backgroundJobClient.CreatedJobs.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task SendTrainingCreatedNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForAllUsers()
+    public async Task SendTrainingCreatedNotificationsAsync_ShouldCreateInAppNotificationsAndEmailJobsForVerifiedUsersOnly()
     {
         var services = CreateServiceProvider();
         var dbContext = services.GetRequiredService<AppDbContext>();
@@ -160,21 +162,22 @@ public class NotificationServiceTests
         await notificationService.SendTrainingCreatedNotificationsAsync(training.Id);
 
         var notification = await dbContext.Notifications.SingleAsync();
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         notification.Type.Should().Be(NotificationType.TrainingUpdated);
         notification.Title.Should().Be("Novi trening je zakazan");
         notification.Message.Should().Contain("Novi trening");
-        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
-        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+        notification.Message.Should().Contain(localStartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(localStartTime.ToString("HH:mm"));
 
         var userNotifications = await dbContext.UserNotifications.ToListAsync();
-        userNotifications.Should().HaveCount(3);
+        userNotifications.Should().ContainSingle();
         userNotifications.Select(x => x.UserId).Should().BeEquivalentTo(new[]
         {
-            firstUser.Id,
-            secondUser.Id,
-            thirdUser.Id
+            firstUser.Id
         });
-        backgroundJobClient.CreatedJobs.Should().HaveCount(3);
+        backgroundJobClient.CreatedJobs.Should().ContainSingle();
     }
 
     [Fact]
@@ -194,9 +197,12 @@ public class NotificationServiceTests
         await notificationService.SendTrainingUpdatedNotificationsAsync(training.Id);
 
         var notification = await dbContext.Notifications.SingleAsync();
+        var localStartTime = TimeZoneInfo.ConvertTimeFromUtc(
+            training.StartTime,
+            BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         notification.Type.Should().Be(NotificationType.TrainingUpdated);
-        notification.Message.Should().Contain(training.StartTime.ToString("dd.MM.yyyy."));
-        notification.Message.Should().Contain(training.StartTime.ToString("HH:mm"));
+        notification.Message.Should().Contain(localStartTime.ToString("dd.MM.yyyy."));
+        notification.Message.Should().Contain(localStartTime.ToString("HH:mm"));
 
         var userNotification = await dbContext.UserNotifications.SingleAsync();
         userNotification.UserId.Should().Be(user.Id);

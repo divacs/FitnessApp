@@ -41,6 +41,8 @@ public class TrainingReminderJob
                 .Where(reservation =>
                     reservation.Status == ReservationStatus.Reserved
                     && reservation.ReminderSentAt == null
+                    && !reservation.User.IsDeleted
+                    && reservation.User.UserStatus == UserStatus.Verified
                     && !reservation.TrainingSession.IsCancelled
                     && reservation.TrainingSession.StartTime >= reminderWindowStart
                     && reservation.TrainingSession.StartTime < reminderWindowEnd)

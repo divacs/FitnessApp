@@ -245,7 +245,7 @@ public class NotificationService : INotificationService
             }
 
             _backgroundJobClient.Enqueue<NotificationEmailJob>(
-                job => job.SendAsync(user.Email, user.FirstName, notification.Title, notification.Message));
+                job => job.SendAsync(user.Id, notification.Title, notification.Message));
         }
     }
 
@@ -274,6 +274,7 @@ public class NotificationService : INotificationService
         var targetUsers = await _dbContext.Users
             .Where(user =>
                 !user.IsDeleted
+                && user.UserStatus == UserStatus.Verified
                 && !_dbContext.UserRoles.Any(userRole =>
                     userRole.UserId == user.Id
                     && _dbContext.Roles.Any(role =>
@@ -320,7 +321,7 @@ public class NotificationService : INotificationService
         EnqueueNotificationEmails(notification, uniqueUsers);
 
         _logger.LogInformation(
-            "Sent {NotificationType} notification {NotificationId} to {UserCount} users for training {TrainingSessionId}.",
+            "Sent {NotificationType} notification {NotificationId} to {UserCount} verified users for training {TrainingSessionId}.",
             type,
             notification.Id,
             uniqueUsers.Length,

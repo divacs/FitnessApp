@@ -67,6 +67,30 @@ public class TrainingReminderJobTests
         updatedReservation.ReminderSentAt.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData(UserStatus.Unverified)]
+    [InlineData(UserStatus.Blocked)]
+    public async Task ExecuteAsync_WhenUserIsNotVerified_ShouldNotSendReminder(UserStatus userStatus)
+    {
+        var services = CreateServiceProvider();
+        var dbContext = services.GetRequiredService<AppDbContext>();
+        var emailService = services.GetRequiredService<FakeEmailService>();
+        var job = services.GetRequiredService<TrainingReminderJob>();
+        var user = CreateUser();
+        user.UserStatus = userStatus;
+        var training = CreateTraining(DateTime.UtcNow.AddHours(24).AddMinutes(5));
+        var reservation = CreateReservation(user.Id, training.Id);
+        dbContext.Users.Add(user);
+        dbContext.TrainingSessions.Add(training);
+        dbContext.Reservations.Add(reservation);
+        await dbContext.SaveChangesAsync();
+
+        await job.ExecuteAsync();
+
+        emailService.SentEmails.Should().BeEmpty();
+        (await dbContext.Reservations.SingleAsync(x => x.Id == reservation.Id)).ReminderSentAt.Should().BeNull();
+    }
+
     [Fact]
     public async Task ExecuteAsync_WhenTrainingIsCancelled_ShouldNotSendReminder()
     {

@@ -1,4 +1,7 @@
 using FitnessApp.Application.Features.Emails.Interfaces;
+using FitnessApp.Domain.Enums;
+using FitnessApp.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System.Net;
 
@@ -7,28 +10,47 @@ namespace FitnessApp.Infrastructure.Jobs;
 public class NotificationEmailJob
 {
     private readonly IEmailService _emailService;
+    private readonly AppDbContext _dbContext;
     private readonly ILogger<NotificationEmailJob> _logger;
 
     public NotificationEmailJob(
         IEmailService emailService,
+        AppDbContext dbContext,
         ILogger<NotificationEmailJob> logger)
     {
         _emailService = emailService;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
     public async Task SendAsync(
-        string toEmail,
-        string firstName,
+        Guid userId,
         string title,
         string message)
     {
+        var user = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user =>
+                user.Id == userId
+                && !user.IsDeleted
+                && user.UserStatus == UserStatus.Verified)
+            .Select(user => new { user.Email, user.FirstName })
+            .SingleOrDefaultAsync();
+
+        if (user is null || string.IsNullOrWhiteSpace(user.Email))
+        {
+            _logger.LogInformation(
+                "Notification email skipped because user {UserId} is not an active verified user with an email address.",
+                userId);
+            return;
+        }
+
         var encodedTitle = WebUtility.HtmlEncode(title);
-        var encodedFirstName = WebUtility.HtmlEncode(firstName);
+        var encodedFirstName = WebUtility.HtmlEncode(user.FirstName);
         var encodedMessage = WebUtility.HtmlEncode(message);
 
         var plainTextBody = $"""
-            Zdravo {firstName},
+            Zdravo {user.FirstName},
 
             {message}
 
@@ -64,8 +86,8 @@ public class NotificationEmailJob
             </html>
             """;
 
-        await _emailService.SendAsync(toEmail, title, htmlBody, plainTextBody);
+        await _emailService.SendAsync(user.Email, title, htmlBody, plainTextBody);
 
-        _logger.LogInformation("Notification email job completed for {ToEmail}.", toEmail);
+        _logger.LogInformation("Notification email job completed for user {UserId}.", userId);
     }
 }
