@@ -85,7 +85,11 @@ public class EmailService : IEmailService
         var plainTextBody = $"""
             Zdravo {firstName},
 
-            Vaš nalog je uspešno kreiran. Potrebno je da admin verifikuje nalog. Kada verifikacija bude završena dobićete email.
+            Vaš nalog je uspešno kreiran i čeka verifikaciju od strane Sare. Kada vaš nalog bude odobren, dobićete email.
+
+            FitnessApp je namenjen devojkama koje dolaze na Sarine treninge.
+
+            Ako želite da se priključite grupi, javite se Sari na 064 266 0554 radi dogovora i svih potrebnih informacija.
 
             Sara - FitnessApp
             """;
@@ -96,7 +100,7 @@ public class EmailService : IEmailService
             BuildHtmlTemplate(
                 "Nalog čeka verifikaciju",
                 firstName,
-                "Vaš nalog je uspešno kreiran. Potrebno je da admin verifikuje nalog. Kada verifikacija bude završena dobićete email."),
+                "Vaš nalog je uspešno kreiran i čeka verifikaciju od strane Sare. Kada vaš nalog bude odobren, dobićete email. FitnessApp je namenjen devojkama koje dolaze na Sarine treninge. Ako želite da se priključite grupi, javite se Sari na 064 266 0554 radi dogovora i svih potrebnih informacija."),
             plainTextBody,
             cancellationToken);
     }
