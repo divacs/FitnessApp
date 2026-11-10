@@ -131,7 +131,10 @@ public class NotificationServiceTests
             training.StartTime,
             BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         notification.Type.Should().Be(NotificationType.TrainingCancelled);
+        notification.Title.Should().Be("Termin više nije dostupan");
+        notification.Message.Should().Contain("više nije dostupan");
         notification.Message.Should().Contain("Sara je odsutna");
+        notification.Message.Should().Contain("zamenski termin");
         notification.Message.Should().Contain(localStartTime.ToString("dd.MM.yyyy."));
         notification.Message.Should().Contain(localStartTime.ToString("HH:mm"));
 
@@ -166,8 +169,9 @@ public class NotificationServiceTests
             training.StartTime,
             BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
         notification.Type.Should().Be(NotificationType.TrainingUpdated);
-        notification.Title.Should().Be("Novi trening je zakazan");
-        notification.Message.Should().Contain("Novi trening");
+        notification.Title.Should().Be("Novi trening je dostupan");
+        notification.Message.Should().Contain("dostupan za rezervaciju");
+        notification.Message.Should().Contain("Rezervišite svoje mesto na vreme.");
         notification.Message.Should().Contain(localStartTime.ToString("dd.MM.yyyy."));
         notification.Message.Should().Contain(localStartTime.ToString("HH:mm"));
 

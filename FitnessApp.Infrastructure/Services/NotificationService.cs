@@ -199,7 +199,7 @@ public class NotificationService : INotificationService
 
         return SendTrainingNotificationAsync(
             trainingSessionId,
-            title: "Trening je otkazan",
+            title: "Termin više nije dostupan",
             type: NotificationType.TrainingCancelled,
             messageFactory: training => BuildTrainingCancelledMessage(training, cancellationReason.Trim()),
             cancellationToken);
@@ -211,7 +211,7 @@ public class NotificationService : INotificationService
     {
         return SendTrainingNotificationAsync(
             trainingSessionId,
-            title: "Novi trening je zakazan",
+            title: "Novi trening je dostupan",
             type: NotificationType.TrainingUpdated,
             messageFactory: BuildTrainingCreatedMessage,
             cancellationToken);
@@ -337,11 +337,13 @@ public class NotificationService : INotificationService
             BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
 
         return $"""
-            Trening "{training.Title}" je otkazan.
+            Termin treninga "{training.Title}" je otkazan i više nije dostupan.
 
             Datum: {localStartTime:dd.MM.yyyy.}
             Vreme: {localStartTime:HH:mm}
             Razlog: {cancellationReason}
+
+            Pratite naredna obaveštenja — ukoliko bude organizovan zamenski termin, bićete obavešteni.
             """;
     }
 
@@ -367,12 +369,14 @@ public class NotificationService : INotificationService
             BiweeklyTrainingSessionSeedingJob.ResolveTimeZone());
 
         return $"""
-            Novi trening "{training.Title}" je zakazan.
+            Novi trening "{training.Title}" je dostupan za rezervaciju.
 
             Datum: {localStartTime:dd.MM.yyyy.}
             Vreme: {localStartTime:HH:mm}
             Lokacija: {training.Location}
             Trener: {training.TrainerName}
+
+            Rezervišite svoje mesto na vreme.
             """;
     }
 
